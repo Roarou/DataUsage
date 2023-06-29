@@ -3,15 +3,24 @@ import open3d as o3d
 from extract_tf_matrix import extract_transformation_matrices
 from tqdm import tqdm
 
+
 def visualize_displacement(transformation_data, stl_files):
     # Create an Open3D visualization window
 
-    meshes=[]
+    meshes = []
     # Add each transformed mesh to the visualization
     for i in range(len(stl_files)):
         # Load the STL file for the corresponding vertebra
         mesh = o3d.io.read_triangle_mesh(stl_files[i])
-
+        # List of colors for each point cloud
+        colors = [[1, 0, 0],  # Red
+                  [0, 1, 0],  # Green
+                  [0, 0, 1],  # Blue
+                  [1, 1, 0],  # Yellow
+                  [0, 1, 1]]  # Cyan
+        # Assign a unique color to the mesh
+        color = colors[i % len(colors)]  # Repeat colors if more meshes than colors
+        mesh.paint_uniform_color(color)
         for j, (tr, rotation_matrix, translation_vector) in enumerate(transformation_data):
             # Apply the transformation to the mesh
             if j < 1:
@@ -34,7 +43,6 @@ def visualize_displacement(transformation_data, stl_files):
 
 
 def main():
-
     # File path for the STR file containing transformation matrices
     poses_0_file_path = "E:/Ghazi/Recordings/Recording0/Poses_0.txt"
     # poses_1_file_path = "E:/Ghazi/Recordings/Recording0/Poses_1.txt"
