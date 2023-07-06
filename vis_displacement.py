@@ -8,6 +8,8 @@ def visualize_displacement(transformation_data, stl_files):
     # Create an Open3D visualization window
 
     meshes = []
+    iteration = len(transformation_data)// 5
+
     # Add each transformed mesh to the visualization
     for i in range(len(stl_files)):
         # Load the STL file for the corresponding vertebra
@@ -21,10 +23,9 @@ def visualize_displacement(transformation_data, stl_files):
         # Assign a unique color to the mesh
         color = colors[i % len(colors)]  # Repeat colors if more meshes than colors
         mesh.paint_uniform_color(color)
-        for j, (tr, rotation_matrix, translation_vector) in enumerate(transformation_data):
-            # Apply the transformation to the mesh
-            if j < 1:
-                mesh.transform(tr)
+        # at some point the formula will have to transform into j*5 and j will  correspond to the frame
+        # mesh.transform(transformation_data[i+ j*5])
+        mesh.transform(transformation_data[i])
         # Add the transformed mesh to the visualization
         mesh = mesh.sample_points_uniformly(number_of_points=100000)
         meshes.append(mesh)

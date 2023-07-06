@@ -25,7 +25,8 @@ def extract_transformation_matrices(file_path):
             transformation_matrices.append(transformation_matrix)
             rotation.append(transformation_matrix[:3, :3])
             translation.append(transformation_matrix[:3, 3])
-    return zip(transformation_matrices, rotation, translation)
+    #return zip(transformation_matrices, rotation, translation)
+    return transformation_matrices
 
 
 def main():
