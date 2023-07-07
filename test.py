@@ -1,53 +1,57 @@
+
 import open3d as o3d
+# Reading the point clouds:
+pcd1 = o3d.io.read_point_cloud("test_0.pcd")
+pcd2 = o3d.io.read_point_cloud("test_1.pcd")
+print("Number of points in pcd1:", len(pcd1.points))
+print("Number of points in pcd2:", len(pcd2.points))
 
-# Define the file paths for the STL files
-stl_file_paths = ["E:/Ghazi/STL/L1.stl", "E:/Ghazi/STL/L2.stl"]
+# Preprocessing
+pcd1 = pcd1.voxel_down_sample(voxel_size=0.05)
+pcd2 = pcd2.voxel_down_sample(voxel_size=0.05)
+print("Number of points in pcd1:", len(pcd1.points))
+print("Number of points in pcd2:", len(pcd2.points))
 
-# Create a list to store the meshes
-meshes = []
+pcd1, _ = pcd1.remove_radius_outlier(nb_points=20, radius=5)
+pcd2, _ = pcd2.remove_radius_outlier(nb_points=20, radius=5)
+print("Number of points in pcd1:", len(pcd1.points))
+print("Number of points in pcd2:", len(pcd2.points))
 
-# Load the meshes from the STL files and assign colors
-for i, stl_file_path in enumerate(stl_file_paths):
-    mesh = o3d.io.read_triangle_mesh(stl_file_path)
-    mesh = mesh.sample_points_uniformly(number_of_points=100000)
-    color = [0, 0, 0]  # Default color is black
+pcd1.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30))
+pcd2.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30))
+print("Number of points in pcd1:", len(pcd1.points))
+print("Number of points in pcd2:", len(pcd2.points))
 
-    # Assign a unique color to each mesh
-    if i == 0:
-        color = [1, 0, 0]  # Red color for the first mesh
-    elif i == 1:
-        color = [0, 1, 0]  # Green color for the second mesh
+fpfh1 = o3d.pipelines.registration.compute_fpfh_feature(pcd1, o3d.geometry.KDTreeSearchParamHybrid(radius=0.2, max_nn=100))
+fpfh2 = o3d.pipelines.registration.compute_fpfh_feature(pcd2, o3d.geometry.KDTreeSearchParamHybrid(radius=0.2, max_nn=100))
 
-    # Assign the color to the mesh
-    mesh.paint_uniform_color(color)
-
-    # Subdivide the mesh to increase resolution
-
-    meshes.append(mesh)
-
-# Create the visualization window
-vis = o3d.visualization.Visualizer()
-vis.create_window()
-
-# Add the meshes to the visualization
-for mesh in meshes:
-    vis.add_geometry(mesh)
-
-# Set the point size and run the visualization
-render_option = vis.get_render_option()
-render_option.point_size = 10
-vis.run()
-vis.destroy_window()
-"""
-mesh = mesh.sample_points_uniformly(number_of_points=100000)
-mesh2 = mesh2.sample_points_uniformly(number_of_points=100000)
-points1 = np.asarray(mesh.points)
-points2 = np.asarray(mesh2.points)
-translation = np.array([100.0, 0.0, 0.0])
-points2 = points2+translation
-merged_points = np.concatenate((points1, points2), axis=0)
-merged_point_cloud = o3d.geometry.PointCloud()
-merged_point_cloud.points = o3d.utility.Vector3dVector(
-    merged_points
+# Initial alignment
+icp_coarse = o3d.pipelines.registration.registration_ransac_based_on_feature_matching(
+    pcd1, pcd2,
+    fpfh1, fpfh2,
+    mutual_filter=True,
+    max_correspondence_distance=0.05,
+    estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPoint(False),
+    ransac_n=4,
+    checkers=[
+        o3d.pipelines.registration.CorrespondenceCheckerBasedOnEdgeLength(0.9),
+        o3d.pipelines.registration.CorrespondenceCheckerBasedOnDistance(0.075)
+    ],
+    criteria=o3d.pipelines.registration.RANSACConvergenceCriteria(max_iteration=400)
 )
-"""
+
+pcd2.transform(icp_coarse.transformation)
+
+# Fine-tuning
+icp_fine = o3d.pipelines.registration.registration_icp(
+    pcd1, pcd2,
+    max_correspondence_distance=0.05,
+    estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPlane(),
+    criteria=o3d.pipelines.registration.ICPConvergenceCriteria(max_iteration=100)
+)
+pcd2.transform(icp_fine.transformation)
+
+print(icp_fine.transformation)
+
+# Visualization
+o3d.visualization.draw_geometries([pcd1, pcd2])
