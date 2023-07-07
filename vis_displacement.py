@@ -30,6 +30,11 @@ def visualize_displacement(transformation_data, stl_files):
         mesh = mesh.sample_points_uniformly(number_of_points=100000)
         meshes.append(mesh)
 
+    # Do not forget to change this ! !! ! ! ! ! ! !! ! ! ! !! ! ! ! ! !! !  ! ! ! ! !! ! ! !
+    pcd = o3d.io.read_point_cloud("test_0.pcd")
+    meshes.append(pcd)
+    pcd2 = o3d.io.read_point_cloud("test_1.pcd")
+    meshes.append(pcd2)
     # Set visualization settings
     vis = o3d.visualization.Visualizer()
     vis.create_window()
@@ -37,7 +42,7 @@ def visualize_displacement(transformation_data, stl_files):
         print(1)
         vis.add_geometry(mesh)
     render_option = vis.get_render_option()
-    render_option.point_size = 10
+    render_option.point_size = 3
     # Run the visualization loop
     vis.run()
     vis.destroy_window()
