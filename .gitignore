@@ -1,0 +1,11 @@
+# Ignore images
+*.jpg
+*.jpeg
+*.png
+*.gif
+
+# Ignore .pcd files
+*.pcd
+
+# Ignore JSON files
+*.json
