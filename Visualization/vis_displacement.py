@@ -8,7 +8,7 @@ def visualize_displacement(transformation_data, stl_files):
     # Create an Open3D visualization window
 
     meshes = []
-    iteration = len(transformation_data)// 5
+    iteration = len(transformation_data) // 5
 
     # Add each transformed mesh to the visualization
     for i in range(len(stl_files)):
@@ -31,10 +31,11 @@ def visualize_displacement(transformation_data, stl_files):
         meshes.append(mesh)
 
     # Do not forget to change this ! !! ! ! ! ! ! !! ! ! ! !! ! ! ! ! !! !  ! ! ! ! !! ! ! !
-    pcd = o3d.io.read_point_cloud("test_0.pcd")
+    pcd = o3d.io.read_point_cloud("../test_0.pcd")
     meshes.append(pcd)
-    pcd2 = o3d.io.read_point_cloud("test_1.pcd")
-    meshes.append(pcd2)
+    # Uncomment this
+    # pcd2 = o3d.io.read_point_cloud("../test_1.pcd")
+    # meshes.append(pcd2)
     # Set visualization settings
     vis = o3d.visualization.Visualizer()
     vis.create_window()
