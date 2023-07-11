@@ -18,7 +18,7 @@ class PointCloudProcessor:
         """
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"No file found at {file_path}")
-
+        self.file_path = file_path
         self.pcd = o3d.io.read_point_cloud(file_path)
 
     @staticmethod
@@ -107,8 +107,15 @@ class PointCloudProcessor:
         """
         o3d.visualization.draw_geometries([self.pcd])
 
+    def save_point_cloud(self):
+        """
+        Save the processed point cloud data back to the original file.
+        """
+        o3d.io.write_point_cloud(self.file_path, self.pcd)
+        print(f"Saved the processed point cloud to {self.file_path}")
 
-def run(file_path, show_clusters=True):
+
+def clean(file_path, show_clusters=False):
     # Create an instance of the PointCloudProcessor
     pc_processor = PointCloudProcessor(file_path)
 
@@ -135,8 +142,11 @@ def run(file_path, show_clusters=True):
     # Visualize the final result
     pc_processor.visualize_point_cloud()
 
+    # Save the processed point cloud back to the original file
+    pc_processor.save_point_cloud()
+
 
 if __name__ == "__main__":
     # Path to your point cloud data file
-    file_path = "test_1.pcd"
-    run(file_path)
+    file_path = "../test_1.pcd"
+    clean(file_path)
