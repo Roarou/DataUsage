@@ -115,17 +115,17 @@ class PointCloudProcessor:
         print(f"Saved the processed point cloud to {self.file_path}")
 
 
-def clean(file_path, show_clusters=False):
+def clean(file_path, show_clusters=False, factor=8, rad=5):
     # Create an instance of the PointCloudProcessor
     pc_processor = PointCloudProcessor(file_path)
 
     # Apply various filters to the point cloud
     pc_processor.downsample_point_cloud(voxel_size=1)
     pc_processor.remove_statistical_outliers(nb_neighbors=20, std_ratio=1.0)
-    pc_processor.remove_radius_outliers(nb_points=10, radius=5)
+    pc_processor.remove_radius_outliers(nb_points=10, radius=rad)
 
     # Perform clustering on the filtered point cloud data
-    cluster_labels, idx_labels = pc_processor.cluster_point_cloud(eps=8, min_points=2, print_clusters=show_clusters)
+    cluster_labels, idx_labels = pc_processor.cluster_point_cloud(eps=factor, min_points=2, print_clusters=show_clusters)
 
     if show_clusters:
         # Assign a unique color to each cluster and visualize the result
