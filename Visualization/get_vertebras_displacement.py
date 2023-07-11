@@ -31,6 +31,7 @@ def visualize_displacement(pose_file, stl_files=stl_files_local):
         # Add the transformed mesh to the visualization
         mesh = mesh.sample_points_uniformly(number_of_points=100000)
         meshes.append(mesh)
+    return meshes, transformation_data[0]
 
 
 
