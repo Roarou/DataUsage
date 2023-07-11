@@ -24,16 +24,17 @@ class PoseTransformation:
         self.current_transformation = np.identity(4)
         self.geometries = []
 
-    def read_point_cloud(self, file1, file2):
+    def read_point_cloud(self, file1, file2, downsampling_factor=1):
         """
         Reads point cloud data from files and applies uniform downsampling.
 
         Args:
         file1 (str): The first point cloud data file.
         file2 (str): The second point cloud data file.
+        downsampling_factor (int): The downsampling factor to apply to the point clouds.
         """
-        self.pcd1 = o3d.io.read_point_cloud(file1).uniform_down_sample(5)
-        self.pcd2 = o3d.io.read_point_cloud(file2).uniform_down_sample(5)
+        self.pcd1 = o3d.io.read_point_cloud(file1).uniform_down_sample(downsampling_factor)
+        self.pcd2 = o3d.io.read_point_cloud(file2).uniform_down_sample(downsampling_factor)
 
     def visualize_displacement(self, poses_0_file_path, poses_1_file_path):
         """
@@ -87,15 +88,16 @@ class PoseTransformation:
         o3d.visualization.draw_geometries(self.geometries)
 
 
-if __name__ == "__main__":
+def main():
     # File and directory paths
     poses_0_file_path = "E:/Ghazi/Recordings/Recording0/Poses_0.txt"
     poses_1_file_path = "E:/Ghazi/Recordings/Recording0/Poses_1.txt"
-    file1 = "../test_0.pcd"
-    file2 = "../test_1.pcd"
+    file1 = "./test_0.pcd"
+    file2 = "./test_1.pcd"
     path1 = "E:/Ghazi/CamParams_0_31/SN10027879.conf"
     path2 = "E:/Ghazi/CamParams_0_31/SN10028650.conf"
-    # Clean the data
+
+    # Clean the coarse data
     clean(file1)
     clean(file2)
 
@@ -119,3 +121,7 @@ if __name__ == "__main__":
 
     # Visualize the final result
     pose_transformer.visualize()
+
+
+if __name__ == "__main__":
+    main()
