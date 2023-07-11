@@ -1,8 +1,5 @@
 import open3d as o3d
-import copy
 import numpy as np
-
-
 
 
 def pick_points(pcd):
@@ -21,8 +18,7 @@ def pick_points(pcd):
     return vis.get_picked_points()
 
 
-
-def register(source, target,source_pcd, target_pcd):
+def register(source, target, source_pcd, target_pcd):
     # pick points from two point clouds and builds correspondences
     picked_id_source = pick_points(source)
     picked_id_target = pick_points(target)
@@ -48,23 +44,21 @@ def register(source, target,source_pcd, target_pcd):
     reg_p2p = o3d.pipelines.registration.registration_icp(
         source, target, threshold, current_transformation,
         o3d.pipelines.registration.TransformationEstimationPointToPoint(),
-        o3d.pipelines.registration.ICPConvergenceCriteria(max_iteration=2000))
+        o3d.pipelines.registration.ICPConvergenceCriteria(max_iteration=20000))
     source.transform(reg_p2p.transformation)
     source_pcd.transform(reg_p2p.transformation)
 
-    o3d.visualization.draw_geometries([source_pcd, target_pcd, source,target])
+    o3d.visualization.draw_geometries([source_pcd, target_pcd, source, target])
 
     threshold = 3
     reg_p2p_v2 = o3d.pipelines.registration.registration_icp(
         source_pcd, target_pcd, threshold, current_transformation,
         o3d.pipelines.registration.TransformationEstimationPointToPoint(),
-        o3d.pipelines.registration.ICPConvergenceCriteria(max_iteration=2000))
+        o3d.pipelines.registration.ICPConvergenceCriteria(max_iteration=20000))
     source_pcd.transform(reg_p2p_v2.transformation)
     source.transform(reg_p2p_v2.transformation)
+    print(reg_p2p_v2.transformation)
+    target.transform(reg_p2p_v2.transformation)
 
-
-
-
-
-    o3d.visualization.draw_geometries([source_pcd, target_pcd])
+    o3d.visualization.draw_geometries([source_pcd, target_pcd, source, target])
     return source_pcd

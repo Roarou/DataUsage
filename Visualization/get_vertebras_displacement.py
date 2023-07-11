@@ -1,14 +1,16 @@
-import numpy as np
 import open3d as o3d
-from extract_tf_matrix_groundtruth import extract_transformation_matrices
-from tqdm import tqdm
+from Visualization.extract_tf_matrix_groundtruth import extract_transformation_matrices
+
+stl_files_local = [
+    f"E:/Ghazi/STL/L{iteration}.stl" for iteration in range(1, 6)
+]
 
 
-def visualize_displacement(transformation_data, stl_files):
-    # Create an Open3D visualization window
+def visualize_displacement(pose_file, stl_files=stl_files_local):
 
+    # Read the transformation matrices from the STR file
+    transformation_data = extract_transformation_matrices(pose_file)
     meshes = []
-    iteration = len(transformation_data) // 5
 
     # Add each transformed mesh to the visualization
     for i in range(len(stl_files)):
@@ -30,9 +32,13 @@ def visualize_displacement(transformation_data, stl_files):
         mesh = mesh.sample_points_uniformly(number_of_points=100000)
         meshes.append(mesh)
 
+
+
+
+"""
     # Do not forget to change this ! !! ! ! ! ! ! !! ! ! ! !! ! ! ! ! !! !  ! ! ! ! !! ! ! !
-    pcd = o3d.io.read_point_cloud("../test_0.pcd")
-    meshes.append(pcd)
+    # pcd = o3d.io.read_point_cloud("../test_0.pcd")
+    # meshes.append(pcd)
     # Uncomment this
     # pcd2 = o3d.io.read_point_cloud("../test_1.pcd")
     # meshes.append(pcd2)
@@ -47,6 +53,7 @@ def visualize_displacement(transformation_data, stl_files):
     # Run the visualization loop
     vis.run()
     vis.destroy_window()
+    """
 
 
 def main():
@@ -54,15 +61,9 @@ def main():
     poses_0_file_path = "E:/Ghazi/Recordings/Recording0/Poses_0.txt"
     # poses_1_file_path = "E:/Ghazi/Recordings/Recording0/Poses_1.txt"
     # File paths for the STL files of the vertebrae
-    stl_files = [
-        f"E:/Ghazi/STL/L{iteration}.stl" for iteration in range(1, 6)
-    ]
-
-    # Read the transformation matrices from the STR file
-    transformation_data = extract_transformation_matrices(poses_0_file_path)
 
     # Visualize the displacement
-    visualize_displacement(transformation_data, stl_files)
+    visualize_displacement(poses_0_file_path)
 
 
 if __name__ == "__main__":
