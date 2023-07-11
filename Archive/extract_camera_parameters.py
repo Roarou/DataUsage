@@ -13,12 +13,11 @@ def parse_camera_parameters(conf_file_path):
                 camera_parameters[current_camera][key] = float(value)
     return camera_parameters
 
+
 if __name__ == "__main__":
     conf_file_path = "E:/Ghazi/CamParams_0_31/SN10027879.conf"
-
     # Parse the camera parameters from the conf file
     camera_parameters = parse_camera_parameters(conf_file_path)
-
     # Extract the parameters for each camera
     left_cam_2k_params = camera_parameters['LEFT_CAM_2K']
     right_cam_2k_params = camera_parameters['RIGHT_CAM_2K']

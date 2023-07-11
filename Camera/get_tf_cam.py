@@ -1,7 +1,22 @@
 import numpy as np
 from configparser import ConfigParser
-from test2 import combine_rotation_translation
+
+
 # Load the conf files
+
+def combine_rotation_translation(rotation_matrix, translation_vector):
+    # Create a 4x4 identity matrix
+    transformation_matrix = np.eye(4)
+
+    # Fill the upper-left 3x3 submatrix with the rotation matrix
+    transformation_matrix[:3, :3] = rotation_matrix
+
+    # Fill the last column with the translation vector
+    transformation_matrix[:3, 3] = translation_vector
+
+    return transformation_matrix
+
+
 def load_conf_file(filepath):
     parser = ConfigParser()
     parser.read(filepath)
@@ -11,8 +26,9 @@ def load_conf_file(filepath):
         params[section] = {k: float(v) for k, v in parser.items(section)}
     return params
 
+
 # Compute the transformation matrix from the parameters
-def get_transformation(path, resolution = '2K'):
+def get_transformation(path, resolution='VGA'):
     params = load_conf_file(path)
     # Load focal length
     fx = params[f'LEFT_CAM_{resolution}']['fx']
@@ -23,8 +39,8 @@ def get_transformation(path, resolution = '2K'):
     # Load baseline
     baseline = params['STEREO']['baseline']
     # Load rotation angles
-    RX = params['STEREO'][f'rx_{resolution.lower()}']
-    RZ = params['STEREO'][f'rx_{resolution.lower()}']
+    RX = params['STEREO'][f'rx_{resolution.lower()}']  # convert to radians ?
+    RZ = params['STEREO'][f'rz_{resolution.lower()}']  # convert to radians and load 'rz'
 
     # Assemble the intrinsic and extrinsic matrices
     # Assemble intrinsic matrix
@@ -37,8 +53,7 @@ def get_transformation(path, resolution = '2K'):
     T = np.array([-baseline / 2, 0, 0])
     # Extrinsic matrix
     E = combine_rotation_translation(R, T)
-    # Compute the transformation matrix
-    transformation = K.dot(E)
-    transformation = np.vstack((transformation, [0, 0, 0, 1]))
-    return transformation
+
+    return K, E
+
 
