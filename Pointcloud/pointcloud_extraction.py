@@ -76,7 +76,7 @@ def process_svo_file(file_path, output_folder, iteration):
     #  nb_frames = zed.get_svo_number_of_frames()
     nb_frames = 5
     print("Clearing old output")
-    dir_path = "../output"
+    dir_path = "output"
     try:
         shutil.rmtree(dir_path)
     except OSError as e:
