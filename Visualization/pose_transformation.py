@@ -2,6 +2,7 @@ import numpy as np
 import open3d as o3d
 from Camera.get_tf_cam import get_transformation
 from Visualization.get_vertebras_displacement import visualize_displacement
+from Pointcloud.pointcloud_cleaning import clean
 
 
 class PoseTransformation:
@@ -19,7 +20,7 @@ class PoseTransformation:
         self.K2, self.E2 = get_transformation(path2)  # Get the transformation for the second path
         self.pcd1 = None
         self.pcd2 = None
-        self.threshold = 3
+        self.threshold = 10
         self.current_transformation = np.identity(4)
         self.geometries = []
 
@@ -94,6 +95,9 @@ if __name__ == "__main__":
     file2 = "../test_1.pcd"
     path1 = "E:/Ghazi/CamParams_0_31/SN10027879.conf"
     path2 = "E:/Ghazi/CamParams_0_31/SN10028650.conf"
+    # Clean the data
+    clean(file1)
+    clean(file2)
 
     # Initialize the PoseTransformation object
     pose_transformer = PoseTransformation(path1, path2)
@@ -115,5 +119,3 @@ if __name__ == "__main__":
 
     # Visualize the final result
     pose_transformer.visualize()
-
-
