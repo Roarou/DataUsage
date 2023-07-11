@@ -60,9 +60,12 @@ class PoseTransformation:
         """
         self.pcd2 = self.pcd2.transform(np.linalg.inv(TF_2))
         self.pcd2 = self.pcd2.transform(TF_1)
+        bounding_box = self.pcd1.get_oriented_bounding_box()
+        bounding_box.color = (0, 1, 0)
         self.geometries.append(self.pcd1)
         self.geometries.append(self.pcd2)
-        o3d.visualization.draw_geometries([self.pcd1, self.pcd2])
+        self.geometries.append(bounding_box)
+        o3d.visualization.draw_geometries([self.pcd1, self.pcd2, bounding_box])
 
     def registration_icp(self):
         """
@@ -87,8 +90,8 @@ if __name__ == "__main__":
     # File and directory paths
     poses_0_file_path = "E:/Ghazi/Recordings/Recording0/Poses_0.txt"
     poses_1_file_path = "E:/Ghazi/Recordings/Recording0/Poses_1.txt"
-    file1 = "test_0.pcd"
-    file2 = "test_1.pcd"
+    file1 = "../test_0.pcd"
+    file2 = "../test_1.pcd"
     path1 = "E:/Ghazi/CamParams_0_31/SN10027879.conf"
     path2 = "E:/Ghazi/CamParams_0_31/SN10028650.conf"
 
