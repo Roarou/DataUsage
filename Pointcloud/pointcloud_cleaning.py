@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import copy
 import os
-
+from scipy.spatial import KDTree
 
 class PointCloudProcessor:
     """
@@ -132,8 +132,48 @@ class PointCloudProcessor:
 
         self.pcd = self.pcd.select_by_index(inliers)
 
+    def estimate_normals(self, search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30)):
+        """
+        Estimate the normals of the point cloud.
+        Args:
+        - search_param: o3d.geometry.KDTreeSearchParamHybrid, search parameters for KDTree.
 
-def clean(file_path, show_clusters=True, factor=8, rad=5):
+        Modifies:
+        - self.pcd: The point cloud data is updated with normals.
+        """
+        self.pcd.estimate_normals(search_param)
+    def reconstruct_surface_and_colorize(self, depth=8):
+        """
+        Reconstruct the 3D surface from the point cloud and colorize it based on the nearest neighbors.
+        Args:
+        - depth: int, depth for the Poisson surface reconstruction.
+
+        Modifies:
+        - self.mesh: The reconstructed and colorized mesh.
+        """
+        # Estimate normals
+        self.pcd.estimate_normals()
+
+        # perform Poisson surface reconstruction
+        self.mesh, _ = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(self.pcd, depth=depth)
+
+        # build a kdtree from the point cloud
+        kdtree = KDTree(np.asarray(self.pcd.points))
+
+        # for each vertex in the mesh, find its nearest neighbor in the point cloud
+        distances, indices = kdtree.query(np.asarray(self.mesh.vertices))
+
+        # assign the color of the nearest neighbor to the vertex
+        self.mesh.vertex_colors = o3d.utility.Vector3dVector(np.asarray(self.pcd.colors)[indices])
+
+    def visualize_mesh(self):
+        """
+        Visualize the reconstructed and colorized mesh.
+        """
+        o3d.visualization.draw_geometries([self.mesh])
+
+
+def clean(file_path, show_clusters=True, factor=8, rad=5, reconstruction=False):
     # Create an instance of the PointCloudProcessor
     pc_processor = PointCloudProcessor(file_path)
 
@@ -159,6 +199,12 @@ def clean(file_path, show_clusters=True, factor=8, rad=5):
 
     # Visualize the final result
     pc_processor.visualize_point_cloud()
+    if reconstruction:
+        # After clustering and visualizing the point cloud, reconstruct the surface and colorize it.
+        pc_processor.reconstruct_surface_and_colorize(depth=10)
+
+        # Visualize the reconstructed and colorized mesh.
+        pc_processor.visualize_mesh()
 
 
     # Save the processed point cloud back to the original file
