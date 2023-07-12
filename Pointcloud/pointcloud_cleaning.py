@@ -115,7 +115,7 @@ class PointCloudProcessor:
         print(f"Saved the processed point cloud to {self.file_path}")
 
 
-def clean(file_path, show_clusters=False, factor=8, rad=5):
+def clean(file_path, show_clusters=True, factor=8, rad=5):
     # Create an instance of the PointCloudProcessor
     pc_processor = PointCloudProcessor(file_path)
 
@@ -143,7 +143,7 @@ def clean(file_path, show_clusters=False, factor=8, rad=5):
     pc_processor.visualize_point_cloud()
 
     # Save the processed point cloud back to the original file
-    pc_processor.save_point_cloud()
+    #pc_processor.save_point_cloud()
 
 
 if __name__ == "__main__":
