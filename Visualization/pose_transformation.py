@@ -4,6 +4,15 @@ from Camera.get_tf_cam import get_transformation
 from Visualization.get_vertebras_displacement import visualize_displacement
 from Pointcloud.pointcloud_cleaning import clean
 
+colors = [
+    (1.0, 0.0, 0.0),  # Red
+    (0.0, 1.0, 0.0),  # Green
+    (0.0, 0.0, 1.0),  # Blue
+    (1.0, 1.0, 0.0),  # Yellow
+    (1.0, 0.0, 1.0),  # Magenta
+    (0.0, 1.0, 1.0),  # Cyan
+    (0.5, 0.5, 0.5),  # Gray
+]
 
 class PoseTransformation:
     def __init__(self, path1, path2):
@@ -49,9 +58,13 @@ class PoseTransformation:
         """
         vertebrae, TF_1 = visualize_displacement(poses_0_file_path)
         _, TF_2 = visualize_displacement(poses_1_file_path)
-        for vertebra in vertebrae:
+        for i, vertebra in enumerate(vertebrae):
+            bounding_box = vertebra.get_oriented_bounding_box()
+            bounding_box.color = colors[i]
             self.geometries.append(vertebra)
+            self.geometries.append(bounding_box)
         return TF_1, TF_2
+
 
     def apply_transformation(self, TF_1, TF_2):
         """
@@ -62,12 +75,14 @@ class PoseTransformation:
         """
         self.pcd2 = self.pcd2.transform(np.linalg.inv(TF_2))
         self.pcd2 = self.pcd2.transform(TF_1)
-        bounding_box = self.pcd1.get_oriented_bounding_box()
-        bounding_box.color = (0, 1, 0)
+        bounding_box = self.pcd2.get_oriented_bounding_box()
+        bounding_box.color = colors[5]
+        bounding_box2 = self.pcd1.get_oriented_bounding_box()
+        bounding_box2.color = colors[6]
         self.geometries.append(self.pcd1)
         self.geometries.append(self.pcd2)
         self.geometries.append(bounding_box)
-        o3d.visualization.draw_geometries([self.pcd1, self.pcd2, bounding_box])
+        o3d.visualization.draw_geometries([self.pcd1, self.pcd2, bounding_box, bounding_box2])
 
     def registration_icp(self):
         """
@@ -87,6 +102,18 @@ class PoseTransformation:
         """Visualizes the point cloud data."""
         o3d.visualization.draw_geometries(self.geometries)
 
+    def save_point_clouds_together(self, file, point_cloud1, point_cloud2):
+        """
+        Combines two point clouds and saves the result into a file.
+
+        Args:
+        file (str): The output file name.
+        point_cloud1 (o3d.geometry.PointCloud): The first point cloud data.
+        point_cloud2 (o3d.geometry.PointCloud): The second point cloud data.
+        """
+        combined_pcd = point_cloud1 + point_cloud2
+        o3d.io.write_point_cloud(file, combined_pcd)
+
 
 def main():
     # File and directory paths
@@ -96,10 +123,10 @@ def main():
     file2 = "./test_1.pcd"
     path1 = "E:/Ghazi/CamParams_0_31/SN10027879.conf"
     path2 = "E:/Ghazi/CamParams_0_31/SN10028650.conf"
-
+    path_f = "final_combined_pcd.pcd"
     # Clean the coarse data
-    clean(file1)
-    clean(file2)
+    clean(file1, show_clusters=False)
+    clean(file2, show_clusters=False)
 
     # Initialize the PoseTransformation object
     pose_transformer = PoseTransformation(path1, path2)
@@ -119,6 +146,9 @@ def main():
     # Print the transformation result
     print(reg_p2p.transformation)
 
+    # Save the transformed and registered point clouds together
+    pose_transformer.save_point_clouds_together(path_f, pose_transformer.pcd1, pose_transformer.pcd2)
+    #clean(path_f, factor=4, rad=2)
     # Visualize the final result
     pose_transformer.visualize()
 
