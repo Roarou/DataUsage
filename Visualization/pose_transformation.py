@@ -29,6 +29,7 @@ class PoseTransformation:
         self.K2, self.E2 = get_transformation(path2)  # Get the transformation for the second path
         self.pcd1 = None
         self.pcd2 = None
+        self.combined_pcd = None
         self.threshold = 10
         self.current_transformation = np.identity(4)
         self.geometries = []
@@ -75,14 +76,10 @@ class PoseTransformation:
         """
         self.pcd2 = self.pcd2.transform(np.linalg.inv(TF_2))
         self.pcd2 = self.pcd2.transform(TF_1)
-        bounding_box = self.pcd2.get_oriented_bounding_box()
-        bounding_box.color = colors[5]
+
         bounding_box2 = self.pcd1.get_oriented_bounding_box()
         bounding_box2.color = colors[6]
-        self.geometries.append(self.pcd1)
-        self.geometries.append(self.pcd2)
-        self.geometries.append(bounding_box)
-        o3d.visualization.draw_geometries([self.pcd1, self.pcd2, bounding_box, bounding_box2])
+
 
     def registration_icp(self):
         """
@@ -98,8 +95,13 @@ class PoseTransformation:
         self.pcd2.transform(reg_p2p.transformation)
         return reg_p2p
 
-    def visualize(self):
+    def visualize(self, filepath):
         """Visualizes the point cloud data."""
+        self.combined_pcd = o3d.io.read_point_cloud(filepath)
+        bounding_box = self.combined_pcd.get_oriented_bounding_box()
+        bounding_box.color = colors[5]
+        self.geometries.append(self.combined_pcd)
+        self.geometries.append(bounding_box)
         o3d.visualization.draw_geometries(self.geometries)
 
     def save_point_clouds_together(self, file, point_cloud1, point_cloud2):
@@ -111,8 +113,8 @@ class PoseTransformation:
         point_cloud1 (o3d.geometry.PointCloud): The first point cloud data.
         point_cloud2 (o3d.geometry.PointCloud): The second point cloud data.
         """
-        combined_pcd = point_cloud1 + point_cloud2
-        o3d.io.write_point_cloud(file, combined_pcd)
+        self.combined_pcd = point_cloud1 + point_cloud2
+        o3d.io.write_point_cloud(file, self.combined_pcd)
 
 
 def main():
@@ -135,7 +137,7 @@ def main():
     TF_1, TF_2 = pose_transformer.visualize_displacement(poses_0_file_path, poses_1_file_path)
 
     # Read and downsample the point cloud data
-    pose_transformer.read_point_cloud(file1, file2)
+    pose_transformer.read_point_cloud(file1, file2, downsampling_factor=2)
 
     # Apply the transformation to the point cloud data
     pose_transformer.apply_transformation(TF_1, TF_2)
@@ -148,9 +150,10 @@ def main():
 
     # Save the transformed and registered point clouds together
     pose_transformer.save_point_clouds_together(path_f, pose_transformer.pcd1, pose_transformer.pcd2)
-    #clean(path_f, factor=4, rad=2)
+    clean(path_f, factor=5, rad=2, show_clusters=False, reconstruction=True)
+
     # Visualize the final result
-    pose_transformer.visualize()
+    pose_transformer.visualize(path_f)
 
 
 if __name__ == "__main__":
