@@ -3,6 +3,7 @@ import open3d as o3d
 from Camera.get_tf_cam import get_transformation
 from Visualization.get_vertebras_displacement import visualize_displacement
 from Pointcloud.pointcloud_cleaning import clean
+import os
 
 colors = [
     (1.0, 0.0, 0.0),  # Red
@@ -13,6 +14,7 @@ colors = [
     (0.0, 1.0, 1.0),  # Cyan
     (0.5, 0.5, 0.5),  # Gray
 ]
+
 
 class PoseTransformation:
     def __init__(self, path1, path2):
@@ -34,7 +36,7 @@ class PoseTransformation:
         self.current_transformation = np.identity(4)
         self.geometries = []
 
-    def read_point_cloud(self, file1, file2, downsampling_factor=1):
+    def read_point_cloud(self, file1, file2):
         """
         Reads point cloud data from files and applies uniform downsampling.
 
@@ -43,8 +45,8 @@ class PoseTransformation:
         file2 (str): The second point cloud data file.
         downsampling_factor (int): The downsampling factor to apply to the point clouds.
         """
-        self.pcd1 = o3d.io.read_point_cloud(file1).uniform_down_sample(downsampling_factor)
-        self.pcd2 = o3d.io.read_point_cloud(file2).uniform_down_sample(downsampling_factor)
+        self.pcd1 = o3d.io.read_point_cloud(file1)
+        self.pcd2 = o3d.io.read_point_cloud(file2)
 
     def visualize_displacement(self, poses_0_file_path, poses_1_file_path):
         """
@@ -66,7 +68,6 @@ class PoseTransformation:
             self.geometries.append(bounding_box)
         return TF_1, TF_2
 
-
     def apply_transformation(self, TF_1, TF_2):
         """
         Applies a transformation to the point cloud data and visualizes the result.
@@ -79,7 +80,6 @@ class PoseTransformation:
 
         bounding_box2 = self.pcd1.get_oriented_bounding_box()
         bounding_box2.color = colors[6]
-
 
     def registration_icp(self):
         """
@@ -104,17 +104,21 @@ class PoseTransformation:
         self.geometries.append(bounding_box)
         o3d.visualization.draw_geometries(self.geometries)
 
-    def save_point_clouds_together(self, file, point_cloud1, point_cloud2):
+    def save_point_clouds_together(self, file_path: str, point_cloud1, point_cloud2):
         """
         Combines two point clouds and saves the result into a file.
 
         Args:
-        file (str): The output file name.
+        file_path (str): The output file name.
         point_cloud1 (o3d.geometry.PointCloud): The first point cloud data.
         point_cloud2 (o3d.geometry.PointCloud): The second point cloud data.
         """
+        # Check if the file already exists
+        if os.path.exists(file_path):
+            # If so, remove it
+            os.remove(file_path)
         self.combined_pcd = point_cloud1 + point_cloud2
-        o3d.io.write_point_cloud(file, self.combined_pcd)
+        o3d.io.write_point_cloud(file_path, self.combined_pcd)
 
 
 def main():
@@ -127,8 +131,8 @@ def main():
     path2 = "E:/Ghazi/CamParams_0_31/SN10028650.conf"
     path_f = "final_combined_pcd.pcd"
     # Clean the coarse data
-    clean(file1, show_clusters=False)
-    clean(file2, show_clusters=False)
+    clean(file1, show_clusters=True)
+    clean(file2, show_clusters=True)
 
     # Initialize the PoseTransformation object
     pose_transformer = PoseTransformation(path1, path2)
@@ -137,7 +141,7 @@ def main():
     TF_1, TF_2 = pose_transformer.visualize_displacement(poses_0_file_path, poses_1_file_path)
 
     # Read and downsample the point cloud data
-    pose_transformer.read_point_cloud(file1, file2, downsampling_factor=2)
+    pose_transformer.read_point_cloud(file1, file2)
 
     # Apply the transformation to the point cloud data
     pose_transformer.apply_transformation(TF_1, TF_2)

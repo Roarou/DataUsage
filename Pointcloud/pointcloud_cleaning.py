@@ -6,12 +6,13 @@ import os
 from sklearn.ensemble import IsolationForest
 from sklearn.neighbors import KDTree
 
+
 class PointCloudProcessor:
     """
     This class encapsulates methods for processing a point cloud.
     """
 
-    def __init__(self, file_path):
+    def __init__(self, file_path: str):
         """
         Initialize the processor with the point cloud data from the file at file_path.
         Args:
@@ -23,7 +24,7 @@ class PointCloudProcessor:
         self.pcd = o3d.io.read_point_cloud(file_path)
 
     @staticmethod
-    def load_point_cloud(file_path):
+    def load_point_cloud(file_path: str, downsampling_factor=2):
         """
         Load a Point Cloud from a file.
         Args:
@@ -32,7 +33,7 @@ class PointCloudProcessor:
         Returns:
         - open3d.geometry.PointCloud, loaded point cloud.
         """
-        return o3d.io.read_point_cloud(file_path)
+        return o3d.io.read_point_cloud(file_path).uniform_down_sample(downsampling_factor)
 
     def downsample_point_cloud(self, voxel_size=1):
         """
@@ -112,6 +113,10 @@ class PointCloudProcessor:
         """
         Save the processed point cloud data back to the original file.
         """
+        # Check if the file already exists
+        if os.path.exists(self.file_path):
+            # If so, remove it
+            os.remove(self.file_path)
         o3d.io.write_point_cloud(self.file_path, self.pcd)
         print(f"Saved the processed point cloud to {self.file_path}")
 
@@ -156,7 +161,7 @@ class PointCloudProcessor:
         colors = np.asarray(self.pcd.colors)
 
         # Fit the model
-        clf = IsolationForest(contamination=0.05)
+        clf = IsolationForest()
         preds = clf.fit_predict(points)
 
         # Get the inliers (labeled as 1)
@@ -191,24 +196,19 @@ class PointCloudProcessor:
         self.pcd.points = o3d.utility.Vector3dVector(np.array(interpolated_points))
         self.pcd.colors = o3d.utility.Vector3dVector(np.array(interpolated_colors))  # Update the colors
 
+
 def clean(file_path, show_clusters=True, factor=8, rad=5, reconstruction=False):
     # Create an instance of the PointCloudProcessor
     pc_processor = PointCloudProcessor(file_path)
 
     # Apply various filters to the point cloud
-    # pc_processor.downsample_point_cloud(voxel_size=1) Deteriore la resolution
-    pc_processor.remove_statistical_outliers(nb_neighbors=20, std_ratio=1.0)
-    pc_processor.remove_radius_outliers(nb_points=10, radius=rad)
-    if reconstruction:
-        # Apply multi-pass color filtering
-        pc_processor.color_filtering(n_passes=4, init_threshold=0.9, threshold_decay=0.8)
-        # Remove outliers using the Isolation Forest algorithm
-        pc_processor.remove_outliers_with_isolation_forest()
-        pc_processor.visualize_point_cloud()
-        pc_processor.upsample_point_cloud(n_neighbors=3)
+    # seems to be working much better, without it
+    # pc_processor.downsample_point_cloud(voxel_size=1)
+    # pc_processor.remove_statistical_outliers(nb_neighbors=20, std_ratio=1.0)
+    # pc_processor.remove_radius_outliers(nb_points=10, radius=rad)
     # Perform clustering on the filtered point cloud data
-    cluster_labels, idx_labels = pc_processor.cluster_point_cloud(eps=factor, min_points=2, print_clusters=show_clusters)
-
+    cluster_labels, idx_labels = pc_processor.cluster_point_cloud(eps=factor, min_points=2,
+                                                                  print_clusters=show_clusters)
     if show_clusters:
         # Assign a unique color to each cluster and visualize the result
         colors = plt.get_cmap("tab20")(cluster_labels / (max(cluster_labels) if max(cluster_labels) > 0 else 1))
@@ -220,16 +220,24 @@ def clean(file_path, show_clusters=True, factor=8, rad=5, reconstruction=False):
     # Keep only the points in the most common cluster
     pc_processor.pcd.points = o3d.utility.Vector3dVector(np.asarray(pc_processor.pcd.points)[idx_labels])
     pc_processor.pcd.colors = o3d.utility.Vector3dVector(np.asarray(pc_processor.pcd.colors)[idx_labels])
+    # Apply multi-pass color filtering
 
+    pc_processor.remove_outliers_with_isolation_forest()
+
+    if reconstruction:
+        pc_processor.color_filtering(n_passes=3, init_threshold=0.9, threshold_decay=0.8)
+        # Remove outliers using the Isolation Forest algorithm
+        pc_processor.visualize_point_cloud()
+        pc_processor.upsample_point_cloud(n_neighbors=3)
     # Visualize the final result
     pc_processor.visualize_point_cloud()
 
     # Save the processed point cloud back to the original file
-    pc_processor.save_point_cloud()
 
+    pc_processor.save_point_cloud()
 
 
 if __name__ == "__main__":
     # Path to your point cloud data file
-    file_path = "../test_1.pcd"
+    file_path = "../test_0.pcd"
     clean(file_path)
