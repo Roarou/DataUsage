@@ -114,6 +114,24 @@ class PointCloudProcessor:
         o3d.io.write_point_cloud(self.file_path, self.pcd)
         print(f"Saved the processed point cloud to {self.file_path}")
 
+    def filter_by_color(self, color_diff_threshold=0.2):
+        """
+        Filters the point cloud by color. Keeps only those points that have a color similar to the average color.
+
+        Args:
+        - color_diff_threshold: float, maximum allowed difference from the average color.
+        """
+        # Calculate the average color of the point cloud
+        avg_color = np.asarray(self.pcd.colors).mean(axis=0)
+
+        # Calculate the color difference for each point
+        color_diff = np.linalg.norm(np.asarray(self.pcd.colors) - avg_color, axis=1)
+
+        # Filter out the points that have a color difference greater than the threshold
+        inliers = np.where(color_diff < color_diff_threshold)[0]
+
+        self.pcd = self.pcd.select_by_index(inliers)
+
 
 def clean(file_path, show_clusters=True, factor=8, rad=5):
     # Create an instance of the PointCloudProcessor
@@ -123,7 +141,7 @@ def clean(file_path, show_clusters=True, factor=8, rad=5):
     pc_processor.downsample_point_cloud(voxel_size=1)
     pc_processor.remove_statistical_outliers(nb_neighbors=20, std_ratio=1.0)
     pc_processor.remove_radius_outliers(nb_points=10, radius=rad)
-
+    pc_processor.filter_by_color(color_diff_threshold=0.35)
     # Perform clustering on the filtered point cloud data
     cluster_labels, idx_labels = pc_processor.cluster_point_cloud(eps=factor, min_points=2, print_clusters=show_clusters)
 
@@ -141,6 +159,7 @@ def clean(file_path, show_clusters=True, factor=8, rad=5):
 
     # Visualize the final result
     pc_processor.visualize_point_cloud()
+
 
     # Save the processed point cloud back to the original file
     #pc_processor.save_point_cloud()
