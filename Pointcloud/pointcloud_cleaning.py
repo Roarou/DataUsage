@@ -3,7 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import copy
 import os
-from scipy.spatial import KDTree
+from sklearn.ensemble import IsolationForest
+from sklearn.neighbors import KDTree
 
 class PointCloudProcessor:
     """
@@ -132,56 +133,79 @@ class PointCloudProcessor:
 
         self.pcd = self.pcd.select_by_index(inliers)
 
-    def estimate_normals(self, search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30)):
+    def color_filtering(self, n_passes=3, init_threshold=0.5, threshold_decay=0.8):
         """
-        Estimate the normals of the point cloud.
+        Apply color-based filtering in multiple passes with a decaying threshold.
         Args:
-        - search_param: o3d.geometry.KDTreeSearchParamHybrid, search parameters for KDTree.
+        - n_passes: int, number of passes.
+        - init_threshold: float, initial threshold.
+        - threshold_decay: float, decay factor for the threshold.
+        """
+        for _ in range(n_passes):
+            self.filter_by_color(color_diff_threshold=init_threshold)
+            init_threshold *= threshold_decay
+
+    def remove_outliers_with_isolation_forest(self):
+        """
+        Remove outliers using the Isolation Forest algorithm.
+        Isolation Forest is a machine learning algorithm for anomaly detection. It's based on the concept of
+        isolating anomalies, instead of the most common data-mining practice of profiling regular instances.
+        """
+        # Convert the points and colors to a NumPy array
+        points = np.asarray(self.pcd.points)
+        colors = np.asarray(self.pcd.colors)
+
+        # Fit the model
+        clf = IsolationForest(contamination=0.05)
+        preds = clf.fit_predict(points)
+
+        # Get the inliers (labeled as 1)
+        inliers = points[preds == 1]
+        inlier_colors = colors[preds == 1]
+
+        # Update the point cloud
+        self.pcd.points = o3d.utility.Vector3dVector(inliers)
+        self.pcd.colors = o3d.utility.Vector3dVector(inlier_colors)
+
+    def upsample_point_cloud(self, n_neighbors=5):
+        """
+        Upsample the point cloud using a KDTree for nearest neighbors computation.
+        Args:
+        - n_neighbors: int, the number of neighbors to use for the upsampling.
 
         Modifies:
-        - self.pcd: The point cloud data is updated with normals.
+        - self.pcd: The point cloud data is replaced with its upsampled version.
         """
-        self.pcd.estimate_normals(search_param)
-    def reconstruct_surface_and_colorize(self, depth=8):
-        """
-        Reconstruct the 3D surface from the point cloud and colorize it based on the nearest neighbors.
-        Args:
-        - depth: int, depth for the Poisson surface reconstruction.
+        # Create a KDTree from the point cloud data
+        tree = KDTree(np.asarray(self.pcd.points), leaf_size=2)
 
-        Modifies:
-        - self.mesh: The reconstructed and colorized mesh.
-        """
-        # Estimate normals
-        self.pcd.estimate_normals()
+        # Interpolate each point with its nearest neighbors
+        interpolated_points = []
+        interpolated_colors = []
+        for point, color in zip(self.pcd.points, self.pcd.colors):
+            _, indices = tree.query([point], k=n_neighbors)
+            interpolated_points.extend(self.pcd.points[i] for i in indices[0])
+            interpolated_colors.extend([color] * n_neighbors)  # Assign the same color to each new point
 
-        # perform Poisson surface reconstruction
-        self.mesh, _ = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(self.pcd, depth=depth)
-
-        # build a kdtree from the point cloud
-        kdtree = KDTree(np.asarray(self.pcd.points))
-
-        # for each vertex in the mesh, find its nearest neighbor in the point cloud
-        distances, indices = kdtree.query(np.asarray(self.mesh.vertices))
-
-        # assign the color of the nearest neighbor to the vertex
-        self.mesh.vertex_colors = o3d.utility.Vector3dVector(np.asarray(self.pcd.colors)[indices])
-
-    def visualize_mesh(self):
-        """
-        Visualize the reconstructed and colorized mesh.
-        """
-        o3d.visualization.draw_geometries([self.mesh])
-
+        # Update the point cloud data
+        self.pcd.points = o3d.utility.Vector3dVector(np.array(interpolated_points))
+        self.pcd.colors = o3d.utility.Vector3dVector(np.array(interpolated_colors))  # Update the colors
 
 def clean(file_path, show_clusters=True, factor=8, rad=5, reconstruction=False):
     # Create an instance of the PointCloudProcessor
     pc_processor = PointCloudProcessor(file_path)
 
     # Apply various filters to the point cloud
-    pc_processor.downsample_point_cloud(voxel_size=1)
+    # pc_processor.downsample_point_cloud(voxel_size=1) Deteriore la resolution
     pc_processor.remove_statistical_outliers(nb_neighbors=20, std_ratio=1.0)
     pc_processor.remove_radius_outliers(nb_points=10, radius=rad)
-    pc_processor.filter_by_color(color_diff_threshold=0.35)
+    if reconstruction:
+        # Apply multi-pass color filtering
+        pc_processor.color_filtering(n_passes=4, init_threshold=0.9, threshold_decay=0.8)
+        # Remove outliers using the Isolation Forest algorithm
+        pc_processor.remove_outliers_with_isolation_forest()
+        pc_processor.visualize_point_cloud()
+        pc_processor.upsample_point_cloud(n_neighbors=3)
     # Perform clustering on the filtered point cloud data
     cluster_labels, idx_labels = pc_processor.cluster_point_cloud(eps=factor, min_points=2, print_clusters=show_clusters)
 
@@ -199,16 +223,10 @@ def clean(file_path, show_clusters=True, factor=8, rad=5, reconstruction=False):
 
     # Visualize the final result
     pc_processor.visualize_point_cloud()
-    if reconstruction:
-        # After clustering and visualizing the point cloud, reconstruct the surface and colorize it.
-        pc_processor.reconstruct_surface_and_colorize(depth=10)
-
-        # Visualize the reconstructed and colorized mesh.
-        pc_processor.visualize_mesh()
-
 
     # Save the processed point cloud back to the original file
-    #pc_processor.save_point_cloud()
+    pc_processor.save_point_cloud()
+
 
 
 if __name__ == "__main__":
