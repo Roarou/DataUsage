@@ -21,7 +21,7 @@ def visualize_displacement(pose_file, stl_files=stl_files_local):
                   [0, 1, 0],  # Green
                   [0, 0, 1],  # Blue
                   [1, 1, 0],  # Yellow
-                  [0, 1, 1]]  # Cyan
+                  [1, 0, 1]]  # Magenta
         # Assign a unique color to the mesh
         color = colors[i % len(colors)]  # Repeat colors if more meshes than colors
         mesh.paint_uniform_color(color)
