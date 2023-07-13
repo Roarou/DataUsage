@@ -30,17 +30,18 @@ def run1():
     # Crop the point cloud
     cropped_pcd = pcd.crop(o3d.geometry.AxisAlignedBoundingBox(min_bound, max_bound))
 
-    # Create a coordinate frame
-    coord_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=10.0, origin=[250, 5, 750])
-
     print(cropped_pcd)
     test = cropped_pcd.get_axis_aligned_bounding_box()
     # print(inspect.getmembers(test))
 
     test.color = (0, 1, 0)
-    # Visualize the point cloud with the coordinate frame
-    o3d.visualization.draw_geometries([cropped_pcd, coord_frame, test])
-
+    # Create a coordinate frame
+    coord_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=10.0, origin=[250, 5, 750])
     output_path = "test_0.pcd"
+    # Visualize the point cloud with the coordinate frame
+    # o3d.visualization.draw_geometries([cropped_pcd, coord_frame, test])
     o3d.io.write_point_cloud(output_path, cropped_pcd)
+
+
+run1()
 

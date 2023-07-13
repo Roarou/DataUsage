@@ -36,8 +36,11 @@ def run2():
 
     test.color = (0, 1, 0)
     # Visualize the point cloud with the coordinate frame
-    o3d.visualization.draw_geometries([cropped_pcd, coord_frame, test])
+    #o3d.visualization.draw_geometries([cropped_pcd, coord_frame, test])
     output_path = "test_1.pcd"
     o3d.io.write_point_cloud(output_path, cropped_pcd)
+
+
+
 
 
