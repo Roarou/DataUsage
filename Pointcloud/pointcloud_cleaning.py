@@ -161,7 +161,7 @@ class PointCloudProcessor:
         colors = np.asarray(self.pcd.colors)
 
         # Fit the model
-        clf = IsolationForest()
+        clf = IsolationForest(contamination=0.2)
         preds = clf.fit_predict(points)
 
         # Get the inliers (labeled as 1)
