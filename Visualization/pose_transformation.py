@@ -131,8 +131,8 @@ def main():
     path2 = "E:/Ghazi/CamParams_0_31/SN10028650.conf"
     path_f = "final_combined_pcd.pcd"
     # Clean the coarse data
-    clean(file1, show_clusters=True)
-    clean(file2, show_clusters=True)
+    clean(file1, show_clusters=False)
+    clean(file2, show_clusters=False)
 
     # Initialize the PoseTransformation object
     pose_transformer = PoseTransformation(path1, path2)

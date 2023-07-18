@@ -49,6 +49,7 @@ def process_frame(zed, frame_index, video_folder, dir_path):
 
         if err == sl.ERROR_CODE.SUCCESS:
             print(f'Point cloud saved: {output_path}')
+            """
             zed_pose = sl.Pose()
             zed_sensors = sl.SensorsData()
             pose_dict = get_pose(zed, zed_pose, zed_sensors)
@@ -56,18 +57,21 @@ def process_frame(zed, frame_index, video_folder, dir_path):
 
             with open(pose_filepath, 'w') as outfile:
                 json.dump(pose_dict, outfile)
+                """
         else:
             print(f'Failed to save point cloud: {output_path}')
 
 
-def process_svo_file(file_path, output_folder, iteration):
+def process_svo_file(file_path, conf_path, iteration):
     """
     Process an SVO file: open it, iterate through frames, and process each frame.
     """
     input_type = sl.InputType()
     input_type.set_from_svo_file(file_path)
-    init = sl.InitParameters(input_t=input_type, svo_real_time_mode=False)
+    #, optional_settings_path=conf_path
+    init = sl.InitParameters(input_t=input_type, svo_real_time_mode=False, optional_settings_path=conf_path)
     zed = sl.Camera()
+    print(zed.get_camera_information())
     status = zed.open(init)
 
     if status != sl.ERROR_CODE.SUCCESS:
@@ -98,7 +102,12 @@ if __name__ == "__main__":
     i = 0
     for filename in os.listdir(folder_path):
         file_path = os.path.join(folder_path, filename)
-
         if os.path.isfile(file_path) and filename.endswith('.svo'):
-            process_svo_file(file_path, output_folder, i)
-            i = i + 1
+            if filename == 'Video_0.svo':
+                conf_path = "E:/Ghazi/CamParams_0_31/SN10027879.conf"
+            elif filename == 'Video_1.svo':
+                conf_path = "E:/Ghazi/CamParams_0_31/SN10028650.conf"
+            if os.path.isfile(conf_path):
+                process_svo_file(file_path, conf_path, i)
+                i = i + 1
+
