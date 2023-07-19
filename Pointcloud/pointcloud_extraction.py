@@ -87,7 +87,7 @@ def process_frame(zed, frame_index, video_folder, dir_path):
             print(f'Failed to save point cloud: {output_path}')
 
 
-def process_svo_file(file_path, conf_path, iteration):
+def process_svo_file(file_path, conf_path, iteration, pointcloud_directory):
     """
     Process an SVO file: open it, iterate through frames, and process each frame.
     """
@@ -101,8 +101,8 @@ def process_svo_file(file_path, conf_path, iteration):
     if status != sl.ERROR_CODE.SUCCESS:
         raise RuntimeError(repr(status))
 
-    #  nb_frames = zed.get_svo_number_of_frames()
-    nb_frames = 5
+    nb_frames = zed.get_svo_number_of_frames()
+
     print("Clearing old output")
     dir_path = "output"
     try:
@@ -111,6 +111,7 @@ def process_svo_file(file_path, conf_path, iteration):
         print("Error: %s : %s" % (dir_path, e.strerror))
 
     video_folder = f'Video_{iteration}'
+    video_folder = os.path.join(pointcloud_directory, video_folder)
     os.makedirs(video_folder, exist_ok=True)
 
     with tqdm(total=nb_frames, desc=f'Processing {file_path}', unit='frame') as pbar:
