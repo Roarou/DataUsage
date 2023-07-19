@@ -74,12 +74,12 @@ for i in range(1, 11):  # Range from 1 to 10 (inclusive)
             if os.path.isfile(file_path) and filename.endswith('.svo'):
                 # Determine the configuration file based on the SVO file name
                 if filename == 'Video_0.svo':
-                    conf_path = os.path.join(conf_path, 'SN10027879.conf')
+                    config_path = os.path.join(conf_path, 'SN10027879.conf')
                 elif filename == 'Video_1.svo':
-                    conf_path = os.path.join(conf_path, 'SN10028650.conf')
+                    config_path = os.path.join(conf_path, 'SN10028650.conf')
 
                 # If the configuration file exists, process the SVO file
-                if os.path.isfile(conf_path):
-                    process_svo_file(file_path, conf_path, i, pointcloud_directory)
+                if os.path.isfile(config_path):
+                    process_svo_file(file_path, config_path, i, pointcloud_directory)
                     i = i + 1  # Increment the SVO file count
 
