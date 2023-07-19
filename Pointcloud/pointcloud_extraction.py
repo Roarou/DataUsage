@@ -101,7 +101,7 @@ def process_svo_file(file_path, conf_path, iteration, pointcloud_directory):
     if status != sl.ERROR_CODE.SUCCESS:
         raise RuntimeError(repr(status))
 
-    nb_frames = 1#zed.get_svo_number_of_frames()
+    nb_frames = zed.get_svo_number_of_frames()
 
     print("Clearing old output")
     dir_path = pointcloud_directory
