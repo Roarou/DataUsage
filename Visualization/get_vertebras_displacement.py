@@ -6,7 +6,7 @@ stl_files_local = [
 ]
 
 
-def visualize_displacement(pose_file, stl_files=stl_files_local):
+def visualize_displacement(pose_file, frame, stl_files=stl_files_local):
 
     # Read the transformation matrices from the STR file
     transformation_data = extract_transformation_matrices(pose_file)
@@ -26,8 +26,8 @@ def visualize_displacement(pose_file, stl_files=stl_files_local):
         color = colors[i % len(colors)]  # Repeat colors if more meshes than colors
         mesh.paint_uniform_color(color)
         # at some point the formula will have to transform into j*5 and j will  correspond to the frame
-        # mesh.transform(transformation_data[i+ j*5])
-        mesh.transform(transformation_data[i])
+        mesh.transform(transformation_data[frame*5 + i])
+        # mesh.transform(transformation_data[i])
         # Add the transformed mesh to the visualization
         mesh = mesh.sample_points_uniformly(number_of_points=100000)
         meshes.append(mesh)
