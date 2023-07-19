@@ -6,7 +6,7 @@ stl_files_local = [
 ]
 
 
-def visualize_displacement(pose_file, frame, stl_files=stl_files_local):
+def visualize_displacements(pose_file, frame, stl_files=stl_files_local):
 
     # Read the transformation matrices from the STR file
     transformation_data = extract_transformation_matrices(pose_file)

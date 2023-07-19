@@ -1,7 +1,7 @@
 import numpy as np
 import open3d as o3d
 from Camera.get_tf_cam import get_transformation
-from Visualization.get_vertebras_displacement import visualize_displacement
+from Visualization.get_vertebras_displacement import visualize_displacements
 from Pointcloud.pointcloud_cleaning import clean
 import os
 
@@ -59,8 +59,8 @@ class PoseTransformation:
         Returns:
         TF_1, TF_2: Transformation matrices for the first and second set of poses.
         """
-        vertebrae, TF_1 = visualize_displacement(poses_0_file_path)
-        _, TF_2 = visualize_displacement(poses_1_file_path)
+        vertebrae, TF_1 = visualize_displacements(poses_0_file_path)
+        _, TF_2 = visualize_displacements(poses_1_file_path)
         for i, vertebra in enumerate(vertebrae):
             bounding_box = vertebra.get_oriented_bounding_box()
             bounding_box.color = colors[i]
