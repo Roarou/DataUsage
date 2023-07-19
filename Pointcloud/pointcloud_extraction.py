@@ -4,7 +4,32 @@ import shutil
 from tqdm import tqdm
 import pyzed.sl as sl
 
+def process_config_files(config_file_path):
 
+
+    path_b = r'C:\\ProgramData\\Stereolabs\\settings'   # Replace with your path
+
+
+    # Check if the config file exists
+    if not os.path.isfile(config_file_path):
+        print("Config file doesn't exist.")
+        exit(1)
+
+    # Delete all files in path_b
+    for filename in os.listdir(path_b):
+        file_path = os.path.join(path_b, filename)
+        try:
+            if os.path.isfile(file_path):
+                os.unlink(file_path)
+                print(f'Deleted: {file_path}.')
+            elif os.path.isdir(file_path):
+                shutil.rmtree(file_path)
+        except Exception as e:
+            print(f'Failed to delete {file_path}. Reason: {e}')
+
+    # Copy the config file to path_b
+    shutil.copy2(config_file_path, path_b)
+    print(f'Copied {config_file_path} ')
 def get_pose(zed, zed_pose, zed_sensors):
     """
     Get the pose of the left eye of the camera with reference to the world frame.
@@ -68,10 +93,9 @@ def process_svo_file(file_path, conf_path, iteration):
     """
     input_type = sl.InputType()
     input_type.set_from_svo_file(file_path)
-    #, optional_settings_path=conf_path
-    init = sl.InitParameters(input_t=input_type, svo_real_time_mode=False, optional_settings_path=conf_path)
+    process_config_files(config_file_path=conf_path)
+    init = sl.InitParameters(input_t=input_type, svo_real_time_mode=False)
     zed = sl.Camera()
-    print(zed.get_camera_information())
     status = zed.open(init)
 
     if status != sl.ERROR_CODE.SUCCESS:
