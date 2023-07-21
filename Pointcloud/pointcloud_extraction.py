@@ -3,7 +3,8 @@ import json
 import shutil
 from tqdm import tqdm
 import pyzed.sl as sl
-
+import open3d as o3d
+import numpy as np
 
 def get_pose(zed, zed_pose, zed_sensors):
     """
@@ -69,10 +70,34 @@ def process_frame(zed, frame_index, video_folder, dir_path):
     if zed.grab() == sl.ERROR_CODE.SUCCESS:
         point_cloud = sl.Mat()
         zed.retrieve_measure(point_cloud, sl.MEASURE.XYZRGBA, sl.MEM.CPU)
-        output_path = os.path.join(video_folder, f'Pointcloud_{frame_index}.pcd')
-        err = point_cloud.write(output_path)
+        # Convert to Open3D format
+        points = np.asarray(point_cloud.get_data())
+        # Mask to remove 'nan' values
+        mask = ~np.isnan(points).any(axis=2)
+        filtered_points = points[mask]
 
-        if err == sl.ERROR_CODE.SUCCESS:
+        xyz = filtered_points[:, :3].astype(np.float32)  # Convert to float32
+        # Decode the fourth channel to retrieve colors
+        rgba = filtered_points[:, 3]
+        rgba_uint8 = np.zeros((rgba.shape[0], 4), dtype=np.uint8)
+        for i in range(4):
+            rgba_uint8[:, i] = np.right_shift(
+                np.bitwise_and(np.array(rgba, dtype=np.uint32), np.uint32(255 << (i * 8))), i * 8)
+
+        rgb = rgba_uint8[:, :3] / 255  # normalize RGB values
+
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(xyz)
+        pcd.colors = o3d.utility.Vector3dVector(rgb)
+
+        downsampled_pcd = pcd.uniform_down_sample(2)
+
+        output_path = os.path.join(video_folder, f'Pointcloud_{frame_index}.pcd')
+
+        # Save the downsampled point cloud
+        err = o3d.io.write_point_cloud(output_path, downsampled_pcd)
+
+        if err:
             print(f'Point cloud saved: {output_path}')
             """
             zed_pose = sl.Pose()
