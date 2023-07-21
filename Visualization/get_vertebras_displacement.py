@@ -64,7 +64,7 @@ def main():
     # File paths for the STL files of the vertebrae
 
     # Visualize the displacement
-    visualize_displacement(poses_0_file_path)
+    visualize_displacements(poses_0_file_path)
 
 
 if __name__ == "__main__":
