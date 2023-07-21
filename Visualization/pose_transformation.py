@@ -123,10 +123,42 @@ class PoseTransformation:
 
 def main():
     # File and directory paths
-    poses_0_file_path = "E:/Ghazi/Recordings/Recording0/Poses_0.txt"
-    poses_1_file_path = "E:/Ghazi/Recordings/Recording0/Poses_1.txt"
-    file1 = "./test_0.pcd"
-    file2 = "./test_1.pcd"
+    # Define some paths
+    base_path = r'G:\SpineDepth'  # Base directory
+    specimen_path = os.path.join(base_path, 'Specimen_1') # Specimen, Chnage number
+    recordings_path = os.path.join(specimen_path, 'Recordings')
+
+    # Check if recordings directory exists
+    if not os.path.isdir(recordings_path):
+        print(f"Recordings directory not found: {recordings_path}")
+        return
+
+    list_dir = os.listdir(recordings_path)
+    list_dir = sorted(list_dir, key=lambda record: int(record.split('Recording')[1]))
+    poses_0_file_path = "Poses_0.txt"
+    poses_1_file_path = "Poses_1.txt"
+    dirname_0 = 'Video_0'
+    dirname_1 = 'Video_1'
+    for dir_name in list_dir:
+        subdirectory_path = os.path.join(recordings_path, dir_name)
+        poses_0_file_path = os.path.join(recordings_path, poses_0_file_path)
+        poses_1_file_path = os.path.join(recordings_path, poses_1_file_path)
+        pointcloud_directory = os.path.join(subdirectory_path, 'pointcloud')
+
+        # Check if pointcloud directory exists
+        if not os.path.isdir(pointcloud_directory):
+            print(f"Pointcloud directory not found: {pointcloud_directory}")
+            continue
+        file_path = os.path.join(pointcloud_directory, dirname_0)
+        for filename in os.listdir(file_path):
+            temp = os.path.join(file_path, filename)
+            if os.path.isfile(temp) and filename.endswith('.pcd'):
+                file1 = temp
+                file2 = os.path.join(pointcloud_directory, dirname_1)
+                file2 = os.path.join(file2, filename)
+                print(file1, file2)
+        print(subdirectory_path)
+# create final path
     path1 = "E:/Ghazi/CamParams_0_31/SN10027879.conf"
     path2 = "E:/Ghazi/CamParams_0_31/SN10028650.conf"
     path_f = "final_combined_pcd.pcd"
