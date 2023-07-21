@@ -64,45 +64,29 @@ def process_config_files(config_file_path):
 def process_frame(zed, frame_index, video_folder, dir_path):
     """
     Process a single frame: grab point cloud, save it, and save the pose information.
-
     """
-    # pose_dir = os.path.join(dir_path, "frame_{}/pose".format(frame_index))
-    # os.makedirs(pose_dir, exist_ok=True)
 
     if zed.grab() == sl.ERROR_CODE.SUCCESS:
         point_cloud = sl.Mat()
         zed.retrieve_measure(point_cloud, sl.MEASURE.XYZRGBA, sl.MEM.CPU)
-        # Convert to Open3D format
         points = np.asarray(point_cloud.get_data())
-        # Mask to remove 'nan' values
         mask = ~np.isnan(points).any(axis=2)
         filtered_points = points[mask]
-        xyz = filtered_points[:, :3].astype(np.float32)  # Convert to float32
+        xyz = filtered_points[:, :3].astype(np.float32)
 
-        # Decode the fourth channel to retrieve colors
         rgb = np.frombuffer(np.float32(filtered_points[:, 3]).tobytes(), np.uint8).reshape(-1, 4)[:, :3] / 255.0
 
         pcd = o3d.geometry.PointCloud()
         pcd.points = o3d.utility.Vector3dVector(xyz)
         pcd.colors = o3d.utility.Vector3dVector(rgb)
-        downsampled_pcd = pcd #.uniform_down_sample(2)
+        downsampled_pcd = pcd
 
         output_path = os.path.join(video_folder, f'Pointcloud_{frame_index}.pcd')
 
-        # Save the downsampled point cloud
-        err = o3d.io.write_point_cloud(output_path, downsampled_pcd)
+        success = o3d.io.write_point_cloud(output_path, downsampled_pcd)
 
-        if err:
+        if success:
             print(f'Point cloud saved: {output_path}')
-            """
-            zed_pose = sl.Pose()
-            zed_sensors = sl.SensorsData()
-            pose_dict = get_pose(zed, zed_pose, zed_sensors)
-            pose_filepath = os.path.join(pose_dir, 'pose.json')
-
-            with open(pose_filepath, 'w') as outfile:
-                json.dump(pose_dict, outfile)
-                """
         else:
             print(f'Failed to save point cloud: {output_path}')
 
@@ -122,13 +106,14 @@ def process_svo_file(file_path, conf_path, iteration, pointcloud_directory):
         raise RuntimeError(repr(status))
 
     nb_frames = zed.get_svo_number_of_frames()
-
-    print("Clearing old output")
     dir_path = pointcloud_directory
-    try:
-        shutil.rmtree(dir_path)
-    except OSError as e:
-        print("Error: %s : %s" % (dir_path, e.strerror))
+    if not iteration:
+        print("Clearing old output")
+
+        try:
+            shutil.rmtree(dir_path)
+        except OSError as e:
+            print("Error: %s : %s" % (dir_path, e.strerror))
 
     video_folder = f'Video_{iteration}'
     video_folder = os.path.join(pointcloud_directory, video_folder)
