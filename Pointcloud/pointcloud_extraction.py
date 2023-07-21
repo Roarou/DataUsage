@@ -4,32 +4,7 @@ import shutil
 from tqdm import tqdm
 import pyzed.sl as sl
 
-def process_config_files(config_file_path):
 
-
-    path_b = r'C:\\ProgramData\\Stereolabs\\settings'   # Replace with your path
-
-
-    # Check if the config file exists
-    if not os.path.isfile(config_file_path):
-        print("Config file doesn't exist.")
-        exit(1)
-
-    # Delete all files in path_b
-    for filename in os.listdir(path_b):
-        file_path = os.path.join(path_b, filename)
-        try:
-            if os.path.isfile(file_path):
-                os.unlink(file_path)
-                print(f'Deleted: {file_path}.')
-            elif os.path.isdir(file_path):
-                shutil.rmtree(file_path)
-        except Exception as e:
-            print(f'Failed to delete {file_path}. Reason: {e}')
-
-    # Copy the config file to path_b
-    shutil.copy2(config_file_path, path_b)
-    print(f'Copied {config_file_path} ')
 def get_pose(zed, zed_pose, zed_sensors):
     """
     Get the pose of the left eye of the camera with reference to the world frame.
@@ -59,12 +34,37 @@ def get_pose(zed, zed_pose, zed_sensors):
     return pose_dict
 
 
+def process_config_files(config_file_path):
+    path_b = r'C:\\ProgramData\\Stereolabs\\settings'  # Replace with your path
+
+    # Check if the config file exists
+    if not os.path.isfile(config_file_path):
+        print("Config file doesn't exist.")
+        exit(1)
+
+    # Delete all files in path_b
+    for filename in os.listdir(path_b):
+        file_path = os.path.join(path_b, filename)
+        try:
+            if os.path.isfile(file_path):
+                os.unlink(file_path)
+                print(f'Deleted: {file_path}.')
+            elif os.path.isdir(file_path):
+                shutil.rmtree(file_path)
+        except Exception as e:
+            print(f'Failed to delete {file_path}. Reason: {e}')
+
+    # Copy the config file to path_b
+    shutil.copy2(config_file_path, path_b)
+    print(f'Copied {config_file_path} ')
+
+
 def process_frame(zed, frame_index, video_folder, dir_path):
     """
     Process a single frame: grab point cloud, save it, and save the pose information.
     """
-    pose_dir = os.path.join(dir_path, "frame_{}/pose".format(frame_index))
-    os.makedirs(pose_dir, exist_ok=True)
+    # pose_dir = os.path.join(dir_path, "frame_{}/pose".format(frame_index))
+    # os.makedirs(pose_dir, exist_ok=True)
 
     if zed.grab() == sl.ERROR_CODE.SUCCESS:
         point_cloud = sl.Mat()
@@ -135,4 +135,3 @@ if __name__ == "__main__":
             if os.path.isfile(conf_path):
                 process_svo_file(file_path, conf_path, i)
                 i = i + 1
-
