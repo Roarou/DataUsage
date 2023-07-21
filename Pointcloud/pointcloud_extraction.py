@@ -5,6 +5,8 @@ from tqdm import tqdm
 import pyzed.sl as sl
 import open3d as o3d
 import numpy as np
+import struct
+
 
 def get_pose(zed, zed_pose, zed_sensors):
     """
@@ -34,7 +36,6 @@ def get_pose(zed, zed_pose, zed_sensors):
 
     return pose_dict
 
-
 def process_config_files(config_file_path):
     path_b = r'C:\\ProgramData\\Stereolabs\\settings'  # Replace with your path
 
@@ -63,6 +64,7 @@ def process_config_files(config_file_path):
 def process_frame(zed, frame_index, video_folder, dir_path):
     """
     Process a single frame: grab point cloud, save it, and save the pose information.
+
     """
     # pose_dir = os.path.join(dir_path, "frame_{}/pose".format(frame_index))
     # os.makedirs(pose_dir, exist_ok=True)
@@ -75,22 +77,15 @@ def process_frame(zed, frame_index, video_folder, dir_path):
         # Mask to remove 'nan' values
         mask = ~np.isnan(points).any(axis=2)
         filtered_points = points[mask]
-
         xyz = filtered_points[:, :3].astype(np.float32)  # Convert to float32
-        # Decode the fourth channel to retrieve colors
-        rgba = filtered_points[:, 3]
-        rgba_uint8 = np.zeros((rgba.shape[0], 4), dtype=np.uint8)
-        for i in range(4):
-            rgba_uint8[:, i] = np.right_shift(
-                np.bitwise_and(np.array(rgba, dtype=np.uint32), np.uint32(255 << (i * 8))), i * 8)
 
-        rgb = rgba_uint8[:, :3] / 255  # normalize RGB values
+        # Decode the fourth channel to retrieve colors
+        rgb = np.frombuffer(np.float32(filtered_points[:, 3]).tobytes(), np.uint8).reshape(-1, 4)[:, :3] / 255.0
 
         pcd = o3d.geometry.PointCloud()
         pcd.points = o3d.utility.Vector3dVector(xyz)
         pcd.colors = o3d.utility.Vector3dVector(rgb)
-
-        downsampled_pcd = pcd.uniform_down_sample(2)
+        downsampled_pcd = pcd #.uniform_down_sample(2)
 
         output_path = os.path.join(video_folder, f'Pointcloud_{frame_index}.pcd')
 
