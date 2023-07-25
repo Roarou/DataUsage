@@ -109,24 +109,15 @@ def process_svo_file(file_path, conf_path, iteration, pointcloud_directory):
     video_folder = os.path.join(pointcloud_directory, video_folder)
     os.makedirs(video_folder, exist_ok=True)
 
-    with Manager() as manager:
-        queue = manager.Queue()  # create a shared queue
+    # Create chunks of frames for each process
+    num_processes = cpu_count() // 2
+    frame_chunks = np.array_split(range(nb_frames), num_processes)
 
-        # Create chunks of frames for each process
-        num_processes = cpu_count() // 2
-        frame_chunks = np.array_split(range(nb_frames), num_processes)
-
-        with Pool() as pool:
-            args = [(queue, file_path, conf_path, frame_chunk, video_folder, dir_path) for frame_chunk in frame_chunks]
-            pool.starmap_async(process_frames, args)
-            pool.close()
-            pool.join()
-
-            # create a tqdm bar and update it as results are put into the queue
-            with tqdm(total=nb_frames, desc=f'Processing {file_path}', unit='frame') as pbar:
-                for _ in range(nb_frames):
-                    if queue.get():  # get a result from the queue (this blocks until a result is available)
-                        pbar.update(1)
+    with Pool() as pool:
+        args = [(file_path, conf_path, frame_chunk, video_folder, dir_path) for frame_chunk in frame_chunks]
+        pool.starmap(process_frames, args)
+        pool.close()
+        pool.join()
 
 if __name__ == "__main__":
     folder_path = "E:/Ghazi/Recordings/Recording0"
