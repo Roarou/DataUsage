@@ -1,40 +1,10 @@
 import os
-import json
 import shutil
 from tqdm import tqdm
 import pyzed.sl as sl
 import open3d as o3d
 import numpy as np
-import struct
-
-
-def get_pose(zed, zed_pose, zed_sensors):
-    """
-    Get the pose of the left eye of the camera with reference to the world frame.
-    """
-    zed.get_position(zed_pose, sl.REFERENCE_FRAME.WORLD)
-    zed.get_sensors_data(zed_sensors, sl.TIME_REFERENCE.IMAGE)
-
-    py_translation = sl.Translation()
-    tx = round(zed_pose.get_translation(py_translation).get()[0], 3)
-    ty = round(zed_pose.get_translation(py_translation).get()[1], 3)
-    tz = round(zed_pose.get_translation(py_translation).get()[2], 3)
-
-    print("Translation: Tx: {0}, Ty: {1}, Tz {2}, Timestamp: {3}\n".format(tx, ty, tz,
-                                                                           zed_pose.timestamp.get_milliseconds()))
-
-    py_orientation = sl.Orientation()
-    ox = round(zed_pose.get_orientation(py_orientation).get()[0], 3)
-    oy = round(zed_pose.get_orientation(py_orientation).get()[1], 3)
-    oz = round(zed_pose.get_orientation(py_orientation).get()[2], 3)
-    ow = round(zed_pose.get_orientation(py_orientation).get()[3], 3)
-
-    print("Orientation: Ox: {0}, Oy: {1}, Oz {2}, Ow: {3}\n".format(ox, oy, oz, ow))
-
-    pose_dict = {'Translation': {'Tx': tx, 'Ty': ty, 'Tz': tz},
-                 'Orientation': {'Ox': ox, 'Oy': oy, 'Oz': oz, 'Ow': ow}}
-
-    return pose_dict
+from multiprocessing import Pool, cpu_count, Manager
 
 def process_config_files(config_file_path):
     path_b = r'C:\\ProgramData\\Stereolabs\\settings'  # Replace with your path
@@ -59,7 +29,6 @@ def process_config_files(config_file_path):
     # Copy the config file to path_b
     shutil.copy2(config_file_path, path_b)
     print(f'Copied {config_file_path} ')
-
 
 def process_frame(zed, frame_index, video_folder, dir_path):
     """
@@ -90,6 +59,27 @@ def process_frame(zed, frame_index, video_folder, dir_path):
         else:
             print(f'Failed to save point cloud: {output_path}')
 
+        return success
+
+
+def process_frames(queue, file_path, conf_path, frame_indices, video_folder, dir_path):
+    """
+    Process multiple frames from the same SVO file: open the camera, and process each frame.
+    """
+    input_type = sl.InputType()
+    input_type.set_from_svo_file(file_path)
+    process_config_files(config_file_path=conf_path)
+    init = sl.InitParameters(input_t=input_type, svo_real_time_mode=False)
+    zed = sl.Camera()
+    status = zed.open(init)
+
+    if status != sl.ERROR_CODE.SUCCESS:
+        raise RuntimeError(repr(status))
+
+    for frame_index in frame_indices:
+        success = process_frame(zed, frame_index, video_folder, dir_path)
+        queue.put(success)
+
 
 def process_svo_file(file_path, conf_path, iteration, pointcloud_directory):
     """
@@ -119,11 +109,24 @@ def process_svo_file(file_path, conf_path, iteration, pointcloud_directory):
     video_folder = os.path.join(pointcloud_directory, video_folder)
     os.makedirs(video_folder, exist_ok=True)
 
-    with tqdm(total=nb_frames, desc=f'Processing {file_path}', unit='frame') as pbar:
-        for frame_index in range(nb_frames):
-            process_frame(zed, frame_index, video_folder, dir_path)
-            pbar.update(1)
+    with Manager() as manager:
+        queue = manager.Queue()  # create a shared queue
 
+        # Create chunks of frames for each process
+        num_processes = cpu_count() - 2
+        frame_chunks = np.array_split(range(nb_frames), num_processes)
+
+        with Pool() as pool:
+            args = [(queue, file_path, conf_path, frame_chunk, video_folder, dir_path) for frame_chunk in frame_chunks]
+            pool.starmap_async(process_frames, args)
+            pool.close()
+            pool.join()
+
+            # create a tqdm bar and update it as results are put into the queue
+            with tqdm(total=nb_frames, desc=f'Processing {file_path}', unit='frame') as pbar:
+                for _ in range(nb_frames):
+                    if queue.get():  # get a result from the queue (this blocks until a result is available)
+                        pbar.update()
 
 if __name__ == "__main__":
     folder_path = "E:/Ghazi/Recordings/Recording0"
