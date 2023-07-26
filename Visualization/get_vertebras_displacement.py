@@ -1,13 +1,11 @@
 import open3d as o3d
 from Visualization.extract_tf_matrix_groundtruth import extract_transformation_matrices
 
-stl_files_local = [
-    f"E:/Ghazi/STL/L{iteration}.stl" for iteration in range(1, 6)
-]
 
-
-def visualize_displacements(pose_file, frame, stl_files=stl_files_local):
-
+def visualize_displacements(pose_file, frame, specimen):
+    stl_files = [
+        f"G:/SpineDepth/Specimen_{specimen}/STL/L{iteration}.stl" for iteration in range(1, 6)
+    ]
     # Read the transformation matrices from the STR file
     transformation_data = extract_transformation_matrices(pose_file)
     meshes = []
