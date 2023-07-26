@@ -16,7 +16,7 @@ colors = [
 
 
 class PoseTransformation:
-    def __init__(self, path1, path2, frame, specimen):
+    def __init__(self, frame, specimen):
         """
         Initializes the PoseTransformation class.
 
@@ -24,10 +24,6 @@ class PoseTransformation:
         path1 (str): The path for the first transformation.
         path2 (str): The path for the second transformation.
         """
-        self.path1 = path1
-        self.path2 = path2
-        self.K1, self.E1 = get_transformation(path1)  # Get the transformation for the first path
-        self.K2, self.E2 = get_transformation(path2)  # Get the transformation for the second path
         self.pcd1 = None
         self.pcd2 = None
         self.combined_pcd = None
