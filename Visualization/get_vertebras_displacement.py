@@ -34,29 +34,6 @@ def visualize_displacements(pose_file, frame, stl_files=stl_files_local):
     return meshes, transformation_data[0]
 
 
-
-
-"""
-    # Do not forget to change this ! !! ! ! ! ! ! !! ! ! ! !! ! ! ! ! !! !  ! ! ! ! !! ! ! !
-    # pcd = o3d.io.read_point_cloud("../test_0.pcd")
-    # meshes.append(pcd)
-    # Uncomment this
-    # pcd2 = o3d.io.read_point_cloud("../test_1.pcd")
-    # meshes.append(pcd2)
-    # Set visualization settings
-    vis = o3d.visualization.Visualizer()
-    vis.create_window()
-    for mesh in meshes:
-        print(1)
-        vis.add_geometry(mesh)
-    render_option = vis.get_render_option()
-    render_option.point_size = 3
-    # Run the visualization loop
-    vis.run()
-    vis.destroy_window()
-    """
-
-
 def main():
     # File path for the STR file containing transformation matrices
     poses_0_file_path = "E:/Ghazi/Recordings/Recording0/Poses_0.txt"
