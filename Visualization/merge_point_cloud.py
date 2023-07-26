@@ -1,9 +1,63 @@
 from Visualization.pose_transformation import PoseTransformation
 import os
 from Pointcloud.pointcloud_cleaning import clean
+from multiprocessing import Pool, cpu_count, TimeoutError
 
+def process_point_cloud(args):
+    """
+    Process the point cloud data for a single frame.
+
+    Parameters:
+        args (tuple): A tuple containing file paths and frame information.
+                     (file1, file2, poses_0_file_path, poses_1_file_path, i, frame)
+
+    Returns:
+        None
+    """
+    file1, file2, poses_0_file_path, poses_1_file_path, i, frame = args
+
+    # Process the point cloud data in the two files.
+    clean(file1, show_clusters=False)  # Clean the first file.
+    clean(file2, show_clusters=False)  # Clean the second file.
+
+    # Process the point cloud data in the two files.
+    pose_transformer = PoseTransformation(specimen=i, frame=frame)
+    pose_transformer.clean_point_clouds(file1, file2)
+
+    # Visualize and get the transformation between the poses in the two pose files.
+    TF_1, TF_2 = pose_transformer.visualize_displacement(poses_0_file_path, poses_1_file_path)
+
+    # Load and downsample the point cloud data from the two files.
+    pose_transformer.read_point_cloud(file1, file2)
+
+    # Apply the transformation to the point cloud data.
+    pose_transformer.apply_transformation(TF_1, TF_2)
+
+    # Perform point-to-point Iterative Closest Point (ICP) registration.
+    reg_p2p = pose_transformer.registration_icp()
+
+    # Print the transformation result.
+    print(reg_p2p.transformation)
+
+    # Save the transformed and registered point clouds together into a file.
+    path_f = f"F_PCD_{frame}.pcd"  # Create a filename for the future combined point cloud data file.
+    pose_transformer.save_point_clouds_together(path_f, pose_transformer.pcd1, pose_transformer.pcd2)
+    pose_transformer.clean_combined_point_cloud(path_f, factor=5, rad=2, show_clusters=False,
+                                                reconstruction=True)
+
+    # Visualize the final combined and cleaned point cloud data.
+    pose_transformer.visualize(path_f)
 
 def main():
+    """
+    Main function to process point cloud data for all frames in multiple specimens.
+
+    Parameters:
+        None
+
+    Returns:
+        None
+    """
     # Define the base directory path.
     base_path = r'G:\SpineDepth'
 
@@ -24,16 +78,14 @@ def main():
         list_dir = sorted(list_dir, key=lambda record: int(record.split('Recording')[1]))
 
         # Define file paths for two pose files and names for two directories.
-        poses_0_file_path = "Poses_0.txt"
-        poses_1_file_path = "Poses_1.txt"
+        poses_0_file_path = os.path.join(recordings_path, "Poses_0.txt")
+        poses_1_file_path = os.path.join(recordings_path, "Poses_1.txt")
         dirname_0 = 'Video_0'
         dirname_1 = 'Video_1'
 
         # For each directory in the list of directories.
         for dir_name in list_dir:
             subdirectory_path = os.path.join(recordings_path, dir_name)
-            poses_0_file_path = os.path.join(recordings_path, poses_0_file_path)
-            poses_1_file_path = os.path.join(recordings_path, poses_1_file_path)
             pointcloud_directory = os.path.join(subdirectory_path, 'pointcloud')
 
             # Check if pointcloud directory exists in the subdirectory.
@@ -53,41 +105,29 @@ def main():
                     file1 = temp  # Store the path to the file.
                     frame = int(filename.split('_')[1].split('.')[0])  # Extract the frame number from the filename.
                     file2 = os.path.join(pointcloud_directory, dirname_1,
-                                         filename)  # Create the path to the corresponding file in the second video directory.
+                                         filename)  # Create the path to the corresponding file in the second video
+                    # directory.
 
-                    print(file1, file2)  # Print the paths to the two files.
-                    print(subdirectory_path)  # Print the path to the current subdirectory.
-                    path_f = f"F_PCD_{frame}.pcd"  # Create a filename for the future combined point cloud data file.
+                    print(f"Processing frame {frame}: {file1}, {file2}")  # Print the paths to the two files.
+                    print(f"Processing specimen {i}, directory: {subdirectory_path}")
+                    # Use multiprocessing to process point cloud data in parallel
+                    # Create chunks of frames for each process
+                    num_processes = cpu_count()
+                    pool = Pool(processes=num_processes)
+                    args = (file1, file2, poses_0_file_path, poses_1_file_path, i, frame)
+                    result = pool.apply_async(process_point_cloud, args=(args,))
 
-                    # Process the point cloud data in the two files.
-                    clean(file1, show_clusters=False)  # Clean the first file.
-                    clean(file2, show_clusters=False)  # Clean the second file.
+                    # Wait for the process to finish or timeout after 600 seconds.
+                    try:
+                        result.get(timeout=600)
+                    except TimeoutError:
+                        print("Process timed out. Restarting the pool.")
+                        pool.terminate()
+                        pool.join()
+                        break  # Restart the pool for the current directory.
 
-                    # Initialize a PoseTransformation object with the current specimen and frame numbers.
-                    pose_transformer = PoseTransformation(specimen=i, frame=frame)
-
-                    # Visualize and get the transformation between the poses in the two pose files.
-                    TF_1, TF_2 = pose_transformer.visualize_displacement(poses_0_file_path, poses_1_file_path)
-
-                    # Load and downsample the point cloud data from the two files.
-                    pose_transformer.read_point_cloud(file1, file2)
-
-                    # Apply the transformation to the point cloud data.
-                    pose_transformer.apply_transformation(TF_1, TF_2)
-
-                    # Perform point-to-point Iterative Closest Point (ICP) registration.
-                    reg_p2p = pose_transformer.registration_icp()
-
-                    # Print the transformation result.
-                    print(reg_p2p.transformation)
-
-                    # Save the transformed and registered point clouds together into a file.
-                    pose_transformer.save_point_clouds_together(path_f, pose_transformer.pcd1, pose_transformer.pcd2)
-                    clean(path_f, factor=5, rad=2, show_clusters=False,
-                          reconstruction=True)  # Clean the combined point cloud data.
-
-                    # Visualize the final combined and cleaned point cloud data.
-                    pose_transformer.visualize(path_f)
+                    pool.close()
+                    pool.join()
 
 if __name__ == "__main__":
     main()

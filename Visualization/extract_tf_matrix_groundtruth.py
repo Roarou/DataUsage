@@ -1,10 +1,18 @@
 import numpy as np
 
 
-# init_params.set_from_svo_file(
-# "E:/Ghazi/Recordings/Recording0/Video_0.svo")
-
 def extract_transformation_matrices(file_path):
+    """
+    Extract transformation matrices from the specified file.
+
+    Parameters:
+        file_path (str): File path of the file containing transformation matrices.
+
+    Returns:
+        list: List of transformation matrices (4x4) for each vertebra in each frame.
+        list: List of rotation matrices (3x3) for each vertebra in each frame.
+        list: List of translation vectors (3x1) for each vertebra in each frame.
+    """
     with open(file_path, 'r') as file:
         lines = file.readlines()
 

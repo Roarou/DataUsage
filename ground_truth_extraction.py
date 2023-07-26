@@ -5,6 +5,16 @@ import os  # Operating system functions
 
 # Function to check if there's only one instance of 'CamParam' in the filenames in the given directory
 def check_single_camparam(strings_list):
+    """
+    Check if there's only one instance of 'CamParam' in the filenames in the given directory.
+
+    Parameters:
+        strings_list (list): A list of strings representing filenames in the directory.
+
+    Returns:
+        tuple: A tuple containing a boolean indicating whether there was only one 'CamParam'
+               and the last part of the first 'CamParam' string (if more than one).
+    """
     camparam_count = 0  # Initialize the count of 'CamParam' occurrences
     b = None  # Initialize a variable
     for j, string in enumerate(strings_list):  # For each string in the list
@@ -20,6 +30,15 @@ def check_single_camparam(strings_list):
 
 
 def main():
+    """
+    Main function to process SVO files and create point clouds.
+
+    Parameters:
+        None
+
+    Returns:
+        None
+    """
     # Define some paths
     base_path = r'G:\SpineDepth'  # Base directory
     calibration_path = 'Calib'  # Calibration directory

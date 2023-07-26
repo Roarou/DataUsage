@@ -7,6 +7,16 @@ from multiprocessing import Pool, cpu_count, TimeoutError, Manager
 
 
 def process_config_files(config_file_path):
+    """
+    Process configuration files by copying them to the specified path.
+
+    Parameters:
+        config_file_path (str): Path of the configuration file to be copied.
+
+    Returns:
+        bool: True if the configuration file is successfully copied, False otherwise.
+    """
+
     path_b = r'C:\\ProgramData\\Stereolabs\\settings'  # Replace with your path
 
     # Check if the config file exists
@@ -39,6 +49,15 @@ def process_config_files(config_file_path):
 def process_frame(zed, frame_index, video_folder, dir_path):
     """
     Process a single frame: grab point cloud, save it, and save the pose information.
+
+    Parameters:
+        zed (sl.Camera): ZED camera object.
+        frame_index (int): Index of the frame to be processed.
+        video_folder (str): Path to the video folder where point clouds will be saved.
+        dir_path (str): Path to the directory where point clouds will be saved.
+
+    Returns:
+        bool: True if the point cloud is successfully saved, False otherwise.
     """
 
     if zed.grab() == sl.ERROR_CODE.SUCCESS:
@@ -71,6 +90,13 @@ def process_frame(zed, frame_index, video_folder, dir_path):
 def process_frames(queue, file_path, frame_indices, video_folder, dir_path):
     """
     Process multiple frames from the same SVO file: open the camera, and process each frame.
+
+    Parameters:
+        queue (Manager.Queue): Queue to store the processing results.
+        file_path (str): Path to the SVO file to be processed.
+        frame_indices (list): List of frame indices to be processed.
+        video_folder (str): Path to the video folder where point clouds will be saved.
+        dir_path (str): Path to the directory where point clouds will be saved.
     """
     input_type = sl.InputType()
     input_type.set_from_svo_file(file_path)
@@ -87,7 +113,16 @@ def process_frames(queue, file_path, frame_indices, video_folder, dir_path):
 
 
 def process_pool(args, conf_path):
+    """
+    Process frames in parallel using multiprocessing.Pool.
 
+    Parameters:
+        args (list): List of tuples containing arguments for each process.
+        conf_path (str): Path to the configuration file to be copied.
+
+    Returns:
+        bool: True if all frames are successfully processed, False otherwise.
+    """
     if not process_config_files(config_file_path=conf_path):
         print('Failed to process config files.')
         return False
@@ -124,6 +159,12 @@ def process_pool(args, conf_path):
 def process_svo_file(file_path, conf_path, iteration, pointcloud_directory):
     """
     Process an SVO file: open it, iterate through frames, and process each frame.
+
+    Parameters:
+        file_path (str): Path to the SVO file to be processed.
+        conf_path (str): Path to the configuration file to be copied.
+        iteration (int): Iteration number of the SVO file.
+        pointcloud_directory (str): Directory where point clouds will be saved.
     """
     input_type = sl.InputType()
     input_type.set_from_svo_file(file_path)

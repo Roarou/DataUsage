@@ -3,6 +3,18 @@ from Visualization.extract_tf_matrix_groundtruth import extract_transformation_m
 
 
 def visualize_displacements(pose_file, frame, specimen):
+    """
+    Visualize the displacements of vertebrae based on transformation matrices.
+
+    Parameters:
+        pose_file (str): File path for the STR file containing transformation matrices.
+        frame (int): Frame number for visualization.
+        specimen (int): Specimen number for visualization.
+
+    Returns:
+        list: List of Open3D meshes representing the transformed vertebrae.
+        ndarray: Transformation matrix of the first vertebra in the list.
+    """
     stl_files = [
         f"G:/SpineDepth/Specimen_{specimen}/STL/L{iteration}.stl" for iteration in range(1, 6)
     ]
