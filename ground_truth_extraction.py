@@ -73,6 +73,10 @@ def main():
             # Process each SVO file in the subdirectory
             folder_path = subdirectory_path
             i = 0
+            # Check if the folder is empty
+            if not os.listdir(folder_path):
+                raise FileNotFoundError("The folder is empty.")
+
             for filename in os.listdir(folder_path):
                 file_path = os.path.join(folder_path, filename)
                 if os.path.isfile(file_path) and filename.endswith('.svo'):
