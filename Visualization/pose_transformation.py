@@ -16,7 +16,7 @@ colors = [
 
 
 class PoseTransformation:
-    def __init__(self, path1, path2):
+    def __init__(self, path1, path2, frame, specimen):
         """
         Initializes the PoseTransformation class.
 
@@ -34,7 +34,8 @@ class PoseTransformation:
         self.threshold = 10
         self.current_transformation = np.identity(4)
         self.geometries = []
-
+        self.specimen = specimen
+        self.frame = frame
     def read_point_cloud(self, file1, file2):
         """
         Reads point cloud data from files and applies uniform downsampling.
@@ -58,7 +59,7 @@ class PoseTransformation:
         Returns:
         TF_1, TF_2: Transformation matrices for the first and second set of poses.
         """
-        vertebrae, TF_1 = visualize_displacements(poses_0_file_path)
+        vertebrae, TF_1 = visualize_displacements(poses_0_file_path, self.frame, self.specimen)
         _, TF_2 = visualize_displacements(poses_1_file_path)
         for i, vertebra in enumerate(vertebrae):
             bounding_box = vertebra.get_oriented_bounding_box()
