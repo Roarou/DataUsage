@@ -14,7 +14,7 @@ def process_point_cloud(args):
     Returns:
         None
     """
-    file1, file2, poses_0_file_path, poses_1_file_path, i, frame = args
+    file1, file2, poses_0_file_path, poses_1_file_path, i, frame, subdirectory_path = args
 
     # Process the point cloud data in the two files.
     clean(file1, show_clusters=False)  # Clean the first file.
@@ -39,8 +39,11 @@ def process_point_cloud(args):
     # Print the transformation result.
     print(reg_p2p.transformation)
 
+    pointcloud_directory = os.path.join(subdirectory_path, 'merged_pointcloud')
+    os.makedirs(pointcloud_directory, exist_ok=True)
     # Save the transformed and registered point clouds together into a file.
-    path_f = f"F_PCD_{frame}.pcd"  # Create a filename for the future combined point cloud data file.
+    path_f = os.path.join(pointcloud_directory, f"F_PCD_{frame}.pcd")  # Create a filename for the future combined
+    # point cloud data file.
     pose_transformer.save_point_clouds_together(path_f, pose_transformer.pcd1, pose_transformer.pcd2)
     pose_transformer.clean_combined_point_cloud(path_f, factor=5, rad=2, show_clusters=False,
                                                 reconstruction=True)
@@ -114,7 +117,7 @@ def main():
                     # Create chunks of frames for each process
                     num_processes = cpu_count()
                     pool = Pool(processes=num_processes)
-                    args = (file1, file2, poses_0_file_path, poses_1_file_path, i, frame)
+                    args = (file1, file2, poses_0_file_path, poses_1_file_path, i, frame, subdirectory_path)
                     result = pool.apply_async(process_point_cloud, args=(args,))
 
                     # Wait for the process to finish or timeout after 600 seconds.
