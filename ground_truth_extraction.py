@@ -52,9 +52,6 @@ def main():
         print(
             f"Processing recordings directory: {recordings_directory_path}")  # Notify user that the recordings directory is being processed
 
-        pointcloud_count = 0
-        camparams_folders = []
-
         # Get a list of all subdirectories in the 'Recordings' directory, sorted by recording number
         list_dir = os.listdir(recordings_directory_path)
         list_dir = sorted(list_dir, key=lambda record: int(record.split('Recording')[1]))
@@ -67,7 +64,7 @@ def main():
             # If there's more than one 'CamParam' in the directory
             if not flag:
                 conf_path = calibration_path + '_a'  # Add '_a' to the configuration path
-                if k > b:  # If this subdirectory's index is greater than the last part of the first 'CamParam'
+                if k > int(b):  # If this subdirectory's index is greater than the last part of the first 'CamParam'
                     conf_path = calibration_path + '_b'  # Add '_b' to the configuration path
             # Create a 'pointcloud' directory inside the subdirectory
             pointcloud_directory = os.path.join(subdirectory_path, 'pointcloud')
