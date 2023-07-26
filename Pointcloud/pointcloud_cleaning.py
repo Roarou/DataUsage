@@ -227,10 +227,10 @@ def clean(file_path, show_clusters=True, factor=8, rad=5, reconstruction=False):
     if reconstruction:
         pc_processor.color_filtering(n_passes=3, init_threshold=0.9, threshold_decay=0.8)
         # Remove outliers using the Isolation Forest algorithm
-        pc_processor.visualize_point_cloud()
+        # pc_processor.visualize_point_cloud()
         pc_processor.upsample_point_cloud(n_neighbors=3)
     # Visualize the final result
-    pc_processor.visualize_point_cloud()
+    # pc_processor.visualize_point_cloud()
 
     # Save the processed point cloud back to the original file
 
