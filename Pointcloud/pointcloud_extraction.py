@@ -1,10 +1,9 @@
 import os
 import shutil
-from tqdm import tqdm
 import pyzed.sl as sl
 import open3d as o3d
 import numpy as np
-from multiprocessing import Pool, cpu_count, Manager
+from multiprocessing import Pool, cpu_count, TimeoutError, Manager
 
 def process_config_files(config_file_path):
     path_b = r'C:\\ProgramData\\Stereolabs\\settings'  # Replace with your path
@@ -12,7 +11,7 @@ def process_config_files(config_file_path):
     # Check if the config file exists
     if not os.path.isfile(config_file_path):
         print("Config file doesn't exist.")
-        exit(1)
+        return False
 
     # Delete all files in path_b
     for filename in os.listdir(path_b):
@@ -27,9 +26,13 @@ def process_config_files(config_file_path):
             print(f'Failed to delete {file_path}. Reason: {e}')
 
     # Copy the config file to path_b
-    shutil.copy2(config_file_path, path_b)
-    print(f'Copied {config_file_path} ')
-
+    try:
+        shutil.copy2(config_file_path, path_b)
+        print(f'Copied {config_file_path} ')
+        return True
+    except PermissionError:
+        print(f'PermissionError: Could not copy {config_file_path} due to insufficient permissions.')
+        return False
 def process_frame(zed, frame_index, video_folder, dir_path):
     """
     Process a single frame: grab point cloud, save it, and save the pose information.
@@ -62,13 +65,12 @@ def process_frame(zed, frame_index, video_folder, dir_path):
         return success
 
 
-def process_frames(queue, file_path, conf_path, frame_indices, video_folder, dir_path):
+def process_frames(queue, file_path, frame_indices, video_folder, dir_path):
     """
     Process multiple frames from the same SVO file: open the camera, and process each frame.
     """
     input_type = sl.InputType()
     input_type.set_from_svo_file(file_path)
-    process_config_files(config_file_path=conf_path)
     init = sl.InitParameters(input_t=input_type, svo_real_time_mode=False)
     zed = sl.Camera()
     status = zed.open(init)
@@ -80,6 +82,41 @@ def process_frames(queue, file_path, conf_path, frame_indices, video_folder, dir
         success = process_frame(zed, frame_index, video_folder, dir_path)
         queue.put(success)
 
+
+def process_pool(args, conf_path):
+
+    if not process_config_files(config_file_path=conf_path):
+        print('Failed to process config files.')
+        return False
+
+    with Manager() as manager:
+        queue = manager.Queue()  # Queue to store results
+        pool = Pool()
+        results = []
+        for arg in args:
+            # Add the queue as the first argument to process_frames
+            results.append(pool.apply_async(process_frames, (queue, *arg)))
+
+        for result in results:
+            try:
+                result.get(timeout=600)  # Set timeout to 10 minutes
+            except TimeoutError:
+                print("Timeout reached. Terminating the pool.")
+                pool.terminate()
+                pool.join()
+                return False
+        pool.close()
+        pool.join()
+
+        # Here you could handle the results stored in the queue.
+        # For example, you could check if all tasks were successful:
+        while not queue.empty():
+            success = queue.get()
+            if not success:
+                print("At least one task failed.")
+                return False  # Or handle the failure in some other way
+
+        return True
 
 def process_svo_file(file_path, conf_path, iteration, pointcloud_directory):
     """
@@ -110,14 +147,14 @@ def process_svo_file(file_path, conf_path, iteration, pointcloud_directory):
     os.makedirs(video_folder, exist_ok=True)
 
     # Create chunks of frames for each process
-    num_processes = cpu_count() // 2
+    num_processes = cpu_count()
+
     frame_chunks = np.array_split(range(nb_frames), num_processes)
 
-    with Pool() as pool:
-        args = [(file_path, conf_path, frame_chunk, video_folder, dir_path) for frame_chunk in frame_chunks]
-        pool.starmap(process_frames, args)
-        pool.close()
-        pool.join()
+    args = [(file_path, frame_chunk, video_folder, dir_path) for frame_chunk in frame_chunks]
+
+    while not process_pool(args, conf_path):
+        print("Restarting the pool.")
 
 if __name__ == "__main__":
     folder_path = "E:/Ghazi/Recordings/Recording0"
