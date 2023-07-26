@@ -5,6 +5,7 @@ import open3d as o3d
 import numpy as np
 from multiprocessing import Pool, cpu_count, TimeoutError, Manager
 
+
 def process_config_files(config_file_path):
     path_b = r'C:\\ProgramData\\Stereolabs\\settings'  # Replace with your path
 
@@ -33,6 +34,8 @@ def process_config_files(config_file_path):
     except PermissionError:
         print(f'PermissionError: Could not copy {config_file_path} due to insufficient permissions.')
         return False
+
+
 def process_frame(zed, frame_index, video_folder, dir_path):
     """
     Process a single frame: grab point cloud, save it, and save the pose information.
