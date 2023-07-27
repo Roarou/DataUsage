@@ -1,7 +1,8 @@
 import torch
 from torch.nn import Sequential as Seq, Linear as Lin, ReLU
 import torch.nn.functional as F
-from torch_geometric.nn import PointConv, fps, radius, global_max_pool
+from torch_geometric.nn import fps, radius, global_max_pool
+from torch_geometric.nn.conv import PointConv
 
 class SAModule(torch.nn.Module):
     """ PointNet++ Set Abstraction (SA) Module """
@@ -31,7 +32,7 @@ class SAModule(torch.nn.Module):
 class SpineSegmentationNet(torch.nn.Module):
     """ The PointNet++ model for spine segmentation """
     def __init__(self):
-        super(Net, self).__init__()
+        super(SpineSegmentationNet, self).__init__()
 
         # Encoder part using SAModule
         self.sa1_module = SAModule(0.5, 0.2, Seq(Lin(3, 64), ReLU(), Lin(64, 64), ReLU(), Lin(64, 128)))
