@@ -18,13 +18,18 @@ def calculate_metrics(pred, target):
     Returns:
     dict: A dictionary containing all the calculated metrics.
     """
+    pred = pred.detach().cpu()
+    target = target.detach().cpu()
+
+    # Apply threshold to get discrete class predictions
+    pred_classes = (pred >= 0.5).float()
 
     # Calculate metrics
-    iou = iou_metric(pred, target)
-    f1 = f1_metric(pred, target)
-    precision = precision_metric(pred, target)
-    recall = recall_metric(pred, target)
-    print(f"iou:  {iou}, precision: {precision}, recall: {recall}, f1: {f1}")
+    iou = iou_metric(pred_classes, target)
+    f1 = f1_metric(pred_classes, target)
+    precision = precision_metric(pred_classes, target)
+    recall = recall_metric(pred_classes, target)
+    # print(f"iou:  {iou}, precision: {precision}, recall: {recall}, f1: {f1}")
     # Put metrics in dictionary
     metrics = {
         'IoU': iou,
