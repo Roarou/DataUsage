@@ -4,11 +4,16 @@ from torch import nn
 from tqdm import tqdm
 from Model.pointnet import SpineSegmentationNet
 from Model.pointcloud_normalization import normalize_point_cloud
+from get_metrics import calculate_metrics
+from torch.utils.tensorboard import SummaryWriter
 
 # Define the model
 model = SpineSegmentationNet()
 if torch.cuda.is_available():
     model = model.cuda()
+
+# Create a SummaryWriter
+writer = SummaryWriter('runs/spine_segmentation_experiment_1')
 
 # Binary Cross Entropy Loss
 criterion = nn.BCELoss()
@@ -22,7 +27,6 @@ epochs = 10
 # Load your dataset
 # Suppose you have a list of point cloud files for training
 train_files = ['file1.pcd', 'file2.pcd', 'file3.pcd', ...]
-
 for epoch in range(epochs):
     running_loss = 0.0
     progress_bar = tqdm(enumerate(train_files), total=len(train_files))
@@ -51,12 +55,23 @@ for epoch in range(epochs):
         # Optimize
         optimizer.step()
 
+        # Calculate metrics
+        metrics = calculate_metrics(outputs, labels)
+
+        # Log metrics to TensorBoard
+        writer.add_scalar('Training loss', running_loss/(i+1), epoch)
+        writer.add_scalar('Accuracy', metrics['accuracy'], epoch)
+        writer.add_scalar('Precision', metrics['precision'], epoch)
+        writer.add_scalar('Recall', metrics['recall'], epoch)
+
         # Print statistics
         running_loss += loss.item()
-        if i % 2000 == 1999:  # Print every 2000 mini-batches
-            print('[%d, %5d] loss: %.3f' % (epoch + 1, i + 1, running_loss / 2000))
-            running_loss = 0.0
+        progress_bar.set_description(f"Epoch {epoch+1}/{epochs}, Loss: {running_loss/(i+1):.4f}, Metrics: {metrics}")
 
     progress_bar.close()
 
+# After training, close the SummaryWriter
+writer.close()
+
 print('Finished Training')
+
