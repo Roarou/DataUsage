@@ -5,6 +5,8 @@ import open3d as o3d
 import numpy as np
 from multiprocessing import Pool, cpu_count, TimeoutError, Manager
 
+path_b = r'C:\\ProgramData\\Stereolabs\\settings'  # Replace with your path
+
 
 def process_config_files(config_file_path):
     """
@@ -17,13 +19,10 @@ def process_config_files(config_file_path):
         bool: True if the configuration file is successfully copied, False otherwise.
     """
 
-    path_b = r'C:\\ProgramData\\Stereolabs\\settings'  # Replace with your path
-
     # Check if the config file exists
     if not os.path.isfile(config_file_path):
         print("Config file doesn't exist.")
         return False
-
     # Delete all files in path_b
     for filename in os.listdir(path_b):
         file_path = os.path.join(path_b, filename)
@@ -40,6 +39,7 @@ def process_config_files(config_file_path):
     try:
         shutil.copy2(config_file_path, path_b)
         print(f'Copied {config_file_path} ')
+        print(os.listdir(path_b))
         return True
     except PermissionError:
         print(f'PermissionError: Could not copy {config_file_path} due to insufficient permissions.')
@@ -123,9 +123,6 @@ def process_pool(args, conf_path):
     Returns:
         bool: True if all frames are successfully processed, False otherwise.
     """
-    if not process_config_files(config_file_path=conf_path):
-        print('Failed to process config files.')
-        return False
 
     with Manager() as manager:
         queue = manager.Queue()  # Queue to store results
@@ -168,14 +165,15 @@ def process_svo_file(file_path, conf_path, iteration, pointcloud_directory):
     """
     input_type = sl.InputType()
     input_type.set_from_svo_file(file_path)
-    process_config_files(config_file_path=conf_path)
-    init = sl.InitParameters(input_t=input_type, svo_real_time_mode=False)
+    if not process_config_files(config_file_path=conf_path):
+        print('Failed to process config files.')
+        return False
+
+    init = sl.InitParameters(input_t=input_type, svo_real_time_mode=False, optional_settings_path=path_b)
     zed = sl.Camera()
     status = zed.open(init)
-
     if status != sl.ERROR_CODE.SUCCESS:
         raise RuntimeError(repr(status))
-
     nb_frames = zed.get_svo_number_of_frames()
     dir_path = pointcloud_directory
     if not iteration:
