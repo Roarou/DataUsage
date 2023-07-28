@@ -39,7 +39,6 @@ def process_config_files(config_file_path):
     try:
         shutil.copy2(config_file_path, path_b)
         print(f'Copied {config_file_path} ')
-        print(os.listdir(path_b))
         return True
     except PermissionError:
         print(f'PermissionError: Could not copy {config_file_path} due to insufficient permissions.')
@@ -100,7 +99,7 @@ def process_frames(queue, file_path, frame_indices, video_folder, dir_path):
     """
     input_type = sl.InputType()
     input_type.set_from_svo_file(file_path)
-    init = sl.InitParameters(input_t=input_type, svo_real_time_mode=False)
+    init = sl.InitParameters(input_t=input_type, svo_real_time_mode=False, optional_settings_path=path_b)
     zed = sl.Camera()
     status = zed.open(init)
 
@@ -153,6 +152,7 @@ def process_pool(args, conf_path):
 
         return True
 
+
 def process_svo_file(file_path, conf_path, iteration, pointcloud_directory):
     """
     Process an SVO file: open it, iterate through frames, and process each frame.
@@ -197,6 +197,7 @@ def process_svo_file(file_path, conf_path, iteration, pointcloud_directory):
 
     while not process_pool(args, conf_path):
         print("Restarting the pool.")
+
 
 if __name__ == "__main__":
     folder_path = "E:/Ghazi/Recordings/Recording0"
