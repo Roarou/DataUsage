@@ -6,6 +6,8 @@ from Model.pointnet import SpineSegmentationNet
 from Model.pointcloud_normalization import normalize_point_cloud
 from get_metrics import calculate_metrics
 from torch.utils.tensorboard import SummaryWriter
+# Try different losses, focal loss, cross entropy loss
+# Try different optimizers, ADAM, SGD,
 
 # Define the model
 model = SpineSegmentationNet()
