@@ -197,25 +197,27 @@ class PointCloudProcessor:
         self.pcd.colors = o3d.utility.Vector3dVector(np.array(interpolated_colors))  # Update the colors
 
 
-def clean(file_path, show_clusters=True, factor=8, rad=5, reconstruction=False):
+def clean(file_path, show_clusters=False, factor=8, rad=5, reconstruction=False, noisy_data=False):
     # Create an instance of the PointCloudProcessor
     pc_processor = PointCloudProcessor(file_path)
 
-    # Apply various filters to the point cloud
-    # seems to be working much better, without it
-    # pc_processor.downsample_point_cloud(voxel_size=1)
-    # pc_processor.remove_statistical_outliers(nb_neighbors=20, std_ratio=1.0)
-    # pc_processor.remove_radius_outliers(nb_points=10, radius=rad)
+    if noisy_data:
+        # Apply various filters to the point cloud
+        # seems to be working much better, without it
+        pc_processor.downsample_point_cloud(voxel_size=1)
+        pc_processor.remove_statistical_outliers(nb_neighbors=20, std_ratio=1.0)
+        pc_processor.remove_radius_outliers(nb_points=10, radius=rad)
     # Perform clustering on the filtered point cloud data
     cluster_labels, idx_labels = pc_processor.cluster_point_cloud(eps=factor, min_points=2,
                                                                   print_clusters=show_clusters)
+
     if show_clusters:
         # Assign a unique color to each cluster and visualize the result
         colors = plt.get_cmap("tab20")(cluster_labels / (max(cluster_labels) if max(cluster_labels) > 0 else 1))
         colors[cluster_labels < 0] = 0
         pcd_copy = copy.deepcopy(pc_processor.pcd)
         pcd_copy.colors = o3d.utility.Vector3dVector(colors[:, :3])
-        o3d.visualization.draw_geometries([pcd_copy])
+        # o3d.visualization.draw_geometries([pcd_copy])
 
     # Keep only the points in the most common cluster
     pc_processor.pcd.points = o3d.utility.Vector3dVector(np.asarray(pc_processor.pcd.points)[idx_labels])
@@ -234,7 +236,7 @@ def clean(file_path, show_clusters=True, factor=8, rad=5, reconstruction=False):
 
     # Save the processed point cloud back to the original file
 
-    pc_processor.save_point_cloud()
+    #pc_processor.save_point_cloud()
 
 
 if __name__ == "__main__":
