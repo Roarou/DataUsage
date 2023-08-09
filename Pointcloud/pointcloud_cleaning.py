@@ -57,10 +57,12 @@ class PointCloudProcessor:
         Args:
         - indices: list or array, indices of the points to keep their original colors.
         """
-        self.idx.append(indices)
+        self.idx = indices
         black_color = np.zeros_like(np.asarray(self.pcd.colors))
-        original_color = np.asarray(self.pcd.colors)
-        black_color[indices] = original_color[indices]
+        white_color = np.ones_like(np.asarray(self.pcd.colors))/2
+        black_color[indices] = white_color[indices]
+        # original_color = np.asarray(self.pcd.colors)
+        # black_color[indices] = original_color[indices]
         self.pcd.colors = o3d.utility.Vector3dVector(black_color)
 
     def remove_statistical_outliers(self, nb_neighbors=20, std_ratio=1.0):
@@ -135,8 +137,7 @@ class PointCloudProcessor:
         """
         # Check if the file already exists
         self.pcd = self.GT
-        print(idx[-1])
-        self.update_colors(indices=idx[-1])
+        self.update_colors(indices=idx)
         if os.path.exists(self.file_path):
             # If so, remove it
             os.remove(self.file_path)
@@ -255,7 +256,7 @@ def clean(file_path, idx, show_clusters=False, factor=8, rad=5, reconstruction=F
 
     # Save the processed point cloud back to the original file
 
-    #pc_processor.save_point_cloud()
+    # pc_processor.save_point_cloud()
 
 
 if __name__ == "__main__":
