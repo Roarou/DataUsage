@@ -135,8 +135,8 @@ class PointCloudProcessor:
         """
         # Check if the file already exists
         self.pcd = self.GT
-        for ind in idx:
-            self.update_colors(indices=ind)
+        print(idx[-1])
+        self.update_colors(indices=idx[-1])
         if os.path.exists(self.file_path):
             # If so, remove it
             os.remove(self.file_path)
