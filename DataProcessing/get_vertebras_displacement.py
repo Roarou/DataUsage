@@ -1,5 +1,5 @@
 import open3d as o3d
-from Visualization.extract_tf_matrix_groundtruth import extract_transformation_matrices
+from DataProcessing.extract_tf_matrix_groundtruth import extract_transformation_matrices
 
 
 def visualize_displacements(pose_file, frame, specimen):

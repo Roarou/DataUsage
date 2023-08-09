@@ -1,7 +1,7 @@
 import numpy as np
 import open3d as o3d
 from Camera.get_tf_cam import get_transformation
-from Visualization.get_vertebras_displacement import visualize_displacements
+from DataProcessing.get_vertebras_displacement import visualize_displacements
 import os
 
 colors = [

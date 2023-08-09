@@ -5,7 +5,7 @@ import copy
 import os
 from sklearn.ensemble import IsolationForest
 from sklearn.neighbors import KDTree
-from crop_pointcloud import process_point_cloud
+from DataProcessing.crop_pointcloud import process_point_cloud
 
 
 class PointCloudProcessor:

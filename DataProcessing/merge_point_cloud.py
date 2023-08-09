@@ -1,6 +1,6 @@
-from Visualization.pose_transformation import PoseTransformation
+from DataProcessing.pose_transformation import PoseTransformation
 import os
-from Pointcloud.pointcloud_cleaning import clean
+from DataProcessing.Pointcloud.pointcloud_cleaning import clean
 from multiprocessing import Pool, cpu_count, TimeoutError
 
 def process_point_cloud(args):

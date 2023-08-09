@@ -1,8 +1,8 @@
 import open3d as o3d
 import numpy as np
 import os
-from Visualization.extract_tf_matrix_groundtruth import extract_transformation_matrices
-from Visualization.get_vertebras_displacement import visualize_displacements
+from DataProcessing.extract_tf_matrix_groundtruth import extract_transformation_matrices
+from DataProcessing.get_vertebras_displacement import visualize_displacements
 
 
 def process_point_cloud(input_path: str, path_pose):

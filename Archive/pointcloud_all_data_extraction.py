@@ -106,7 +106,7 @@ def main():
 
     # set up output directory and delete old output
     print("clear old output")
-    dir_path = "../Pointcloud/output"
+    dir_path = "../DataProcessing/Pointcloud/output"
     try:
         shutil.rmtree(dir_path)
     except OSError as e:

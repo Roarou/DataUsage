@@ -1,5 +1,5 @@
 # Import necessary libraries
-from Pointcloud.pointcloud_extraction import process_svo_file  # Import a function to process SVO files
+from DataProcessing.Pointcloud.pointcloud_extraction import process_svo_file  # Import a function to process SVO files
 import os  # Operating system functions
 
 
@@ -90,7 +90,7 @@ def main():
                 if k > int(b):  # If this subdirectory's index is greater than the last part of the first 'CamParam'
                     conf_path = calibration_path + '_b'  # Add '_b' to the configuration path
             # Create a 'pointcloud' directory inside the subdirectory
-            pointcloud_directory = os.path.join(subdirectory_path, 'pointcloud')
+            pointcloud_directory = os.path.join(subdirectory_path, 'DataProcessing/Pointcloud')
             os.makedirs(pointcloud_directory, exist_ok=True)
 
             # Process each SVO file in the subdirectory
