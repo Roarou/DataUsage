@@ -5,6 +5,7 @@ import copy
 import os
 from sklearn.ensemble import IsolationForest
 from sklearn.neighbors import KDTree
+from crop_pointcloud import process_point_cloud
 
 
 class PointCloudProcessor:
@@ -12,7 +13,7 @@ class PointCloudProcessor:
     This class encapsulates methods for processing a point cloud.
     """
 
-    def __init__(self, file_path: str):
+    def __init__(self, file_path: str, idx):
         """
         Initialize the processor with the point cloud data from the file at file_path.
         Args:
@@ -21,7 +22,10 @@ class PointCloudProcessor:
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"No file found at {file_path}")
         self.file_path = file_path
-        self.pcd = o3d.io.read_point_cloud(file_path)
+        self.GT = o3d.io.read_point_cloud(file_path)
+        self.pcd = self.GT.select_by_index(idx)
+        self.idx = []
+        self.idx.append(idx)
 
     @staticmethod
     def load_point_cloud(file_path: str, downsampling_factor=2):
@@ -46,6 +50,19 @@ class PointCloudProcessor:
         """
         self.pcd = self.pcd.voxel_down_sample(voxel_size)
 
+    def update_colors(self, indices):
+        """
+        Update the colors of the point cloud, setting the specified indices to their original colors and the rest to black.
+
+        Args:
+        - indices: list or array, indices of the points to keep their original colors.
+        """
+        self.idx.append(indices)
+        black_color = np.zeros_like(np.asarray(self.pcd.colors))
+        original_color = np.asarray(self.pcd.colors)
+        black_color[indices] = original_color[indices]
+        self.pcd.colors = o3d.utility.Vector3dVector(black_color)
+
     def remove_statistical_outliers(self, nb_neighbors=20, std_ratio=1.0):
         """
         Remove statistical outliers from the point cloud.
@@ -57,7 +74,7 @@ class PointCloudProcessor:
         - self.pcd: The point cloud data is replaced with its inlier version.
         """
         _, ind = self.pcd.remove_statistical_outlier(nb_neighbors, std_ratio)
-        self.pcd = self.pcd.select_by_index(ind)
+        self.update_colors(ind)
 
     def remove_radius_outliers(self, nb_points=16, radius=0.05):
         """
@@ -70,7 +87,7 @@ class PointCloudProcessor:
         - self.pcd: The point cloud data is replaced with its inlier version.
         """
         _, ind = self.pcd.remove_radius_outlier(nb_points, radius)
-        self.pcd = self.pcd.select_by_index(ind)
+        self.update_colors(ind)
 
     def cluster_point_cloud(self, eps=0.02, min_points=10, print_clusters=False):
         """
@@ -96,6 +113,8 @@ class PointCloudProcessor:
         # Get indices of points in the largest cluster
         largest_cluster_idx = np.where(labels == largest_cluster_label)[0]
 
+        # Keep only the points in the most common cluster
+        self.update_colors(indices=largest_cluster_idx)
         if print_clusters:
             print(f"point cloud has {len(unique_labels)} clusters")
             for i in range(len(unique_labels)):
@@ -107,6 +126,7 @@ class PointCloudProcessor:
         """
         Visualize the input point cloud.
         """
+        self.save_point_cloud()
         o3d.visualization.draw_geometries([self.pcd])
 
     def save_point_cloud(self):
@@ -114,6 +134,9 @@ class PointCloudProcessor:
         Save the processed point cloud data back to the original file.
         """
         # Check if the file already exists
+        self.pcd = self.GT
+        for ind in idx:
+            self.update_colors(indices=ind)
         if os.path.exists(self.file_path):
             # If so, remove it
             os.remove(self.file_path)
@@ -136,7 +159,7 @@ class PointCloudProcessor:
         # Filter out the points that have a color difference greater than the threshold
         inliers = np.where(color_diff < color_diff_threshold)[0]
 
-        self.pcd = self.pcd.select_by_index(inliers)
+        self.update_colors(inliers)
 
     def color_filtering(self, n_passes=3, init_threshold=0.5, threshold_decay=0.8):
         """
@@ -161,16 +184,18 @@ class PointCloudProcessor:
         colors = np.asarray(self.pcd.colors)
 
         # Fit the model
-        clf = IsolationForest(contamination=0.2)
+        clf = IsolationForest(contamination=0.05)
         preds = clf.fit_predict(points)
 
         # Get the inliers (labeled as 1)
-        inliers = points[preds == 1]
-        inlier_colors = colors[preds == 1]
+        inlier_indices = np.where(preds == 1)[0]
+        # inliers = points[preds == 1]
+        # inlier_colors = colors[preds == 1]
 
+        self.update_colors(inlier_indices)
         # Update the point cloud
-        self.pcd.points = o3d.utility.Vector3dVector(inliers)
-        self.pcd.colors = o3d.utility.Vector3dVector(inlier_colors)
+        # self.pcd.points = o3d.utility.Vector3dVector(inliers)
+        # self.pcd.colors = o3d.utility.Vector3dVector(inlier_colors)
 
     def upsample_point_cloud(self, n_neighbors=5):
         """
@@ -197,10 +222,9 @@ class PointCloudProcessor:
         self.pcd.colors = o3d.utility.Vector3dVector(np.array(interpolated_colors))  # Update the colors
 
 
-def clean(file_path, show_clusters=False, factor=8, rad=5, reconstruction=False, noisy_data=False):
+def clean(file_path, idx, show_clusters=False, factor=8, rad=5, reconstruction=False, noisy_data=False):
     # Create an instance of the PointCloudProcessor
-    pc_processor = PointCloudProcessor(file_path)
-
+    pc_processor = PointCloudProcessor(file_path, idx)
     if noisy_data:
         # Apply various filters to the point cloud
         # seems to be working much better, without it
@@ -219,20 +243,15 @@ def clean(file_path, show_clusters=False, factor=8, rad=5, reconstruction=False,
         pcd_copy.colors = o3d.utility.Vector3dVector(colors[:, :3])
         # o3d.visualization.draw_geometries([pcd_copy])
 
-    # Keep only the points in the most common cluster
-    pc_processor.pcd.points = o3d.utility.Vector3dVector(np.asarray(pc_processor.pcd.points)[idx_labels])
-    pc_processor.pcd.colors = o3d.utility.Vector3dVector(np.asarray(pc_processor.pcd.colors)[idx_labels])
     # Apply multi-pass color filtering
-
     pc_processor.remove_outliers_with_isolation_forest()
 
     if reconstruction:
-        pc_processor.color_filtering(n_passes=3, init_threshold=0.9, threshold_decay=0.8)
-        # Remove outliers using the Isolation Forest algorithm
-        # pc_processor.visualize_point_cloud()
         pc_processor.upsample_point_cloud(n_neighbors=3)
+        pc_processor.color_filtering(n_passes=3, init_threshold=0.9, threshold_decay=0.8)
+
     # Visualize the final result
-    # pc_processor.visualize_point_cloud()
+    pc_processor.visualize_point_cloud()
 
     # Save the processed point cloud back to the original file
 
@@ -241,5 +260,8 @@ def clean(file_path, show_clusters=False, factor=8, rad=5, reconstruction=False,
 
 if __name__ == "__main__":
     # Path to your point cloud data file
-    file_path = "../test_0.pcd"
-    clean(file_path)
+    input_path = "G:\SpineDepth\Specimen_1\Recordings\Recording0\pointcloud\Video_0\Pointcloud_0.pcd"
+    pose_path = "G:\SpineDepth\Specimen_1\Recordings\Recording0"
+    idx = process_point_cloud(input_path, pose_path)
+    file_path = "G:\SpineDepth\Specimen_1\Recordings\Recording0\pointcloud\Video_0\Pointcloud_0_GT.pcd"
+    clean(file_path, idx)
