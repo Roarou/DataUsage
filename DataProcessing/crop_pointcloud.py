@@ -87,10 +87,9 @@ def process_point_cloud(input_path: str, path_pose):
     inside_bounding_box_indices = inside_bbox_mask
     # Set the color of points outside the bounding box to black
     black_color[inside_bounding_box_indices] = original_colors[inside_bounding_box_indices]
-    coord_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=100.0, origin=[0, 0, 0])
     # Update the color of the point cloud
     point_cloud.colors = o3d.utility.Vector3dVector(black_color)
-    o3d.visualization.draw_geometries([point_cloud, coord_frame, oriented_bbox])
+    o3d.visualization.draw_geometries([point_cloud, oriented_bbox])
     # Extract the base filename and add '_GT' before the extension
     base_filename = os.path.basename(input_path)
     filename_without_extension, extension = os.path.splitext(base_filename)
