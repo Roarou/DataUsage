@@ -16,14 +16,14 @@ def extract_transformation_matrices(file_path):
     with open(file_path, 'r') as file:
         lines = file.readlines()
 
-    num_frames = len(lines) // 10
+    num_frames = len(lines) // 5
     num_vertices = 5
 
     transformation_matrices = []
     rotation = []
     translation = []
     for frame_idx in range(num_frames):
-        frame_start_idx = frame_idx * 10
+        frame_start_idx = frame_idx * 5
 
         for vertebra_idx in range(num_vertices):
             vertebra_start_idx = frame_start_idx + vertebra_idx
