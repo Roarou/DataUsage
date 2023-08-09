@@ -42,9 +42,11 @@ def main():
     # Define some paths
     base_path = r'G:\SpineDepth'  # Base directory
     calibration_path = 'Calib'  # Calibration directory
-
+    # 1
+    list_temp = [1]
+    # range(1,11)
     # For each specimen directory
-    for i in range(1, 11):  # Range from 1 to 10 (inclusive)
+    for i in list_temp:  # Range from 1 to 10 (inclusive)
         specimen_directory = f'Specimen_{i}'  # Create specimen directory name
         specimen_directory_path = os.path.join(base_path,
                                                specimen_directory)  # Create full path to the specimen directory
@@ -54,7 +56,8 @@ def main():
             exit(1)
 
         print(
-            f"Processing specimen directory: {specimen_directory_path}")  # Notify user that the specimen directory is being processed
+            f"Processing specimen directory: {specimen_directory_path}")  # Notify user that the specimen directory
+        # is being processed
 
         # Check for single 'CamParam' in the directory
         flag, b = check_single_camparam(os.listdir(specimen_directory_path))
@@ -69,7 +72,8 @@ def main():
             exit(1)
 
         print(
-            f"Processing recordings directory: {recordings_directory_path}")  # Notify user that the recordings directory is being processed
+            f"Processing recordings directory: {recordings_directory_path}")  # Notify user that the recordings
+        # directory is being processed
 
         # Get a list of all subdirectories in the 'Recordings' directory, sorted by recording number
         list_dir = os.listdir(recordings_directory_path)
@@ -113,4 +117,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
