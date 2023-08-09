@@ -57,6 +57,8 @@ class PoseTransformation:
         """
         vertebrae, TF_1 = visualize_displacements(poses_0_file_path, self.frame, self.specimen)
         _, TF_2 = visualize_displacements(poses_1_file_path)
+        TF_1 = TF_1[0]
+        TF_2 = TF_2[0]
         for i, vertebra in enumerate(vertebrae):
             bounding_box = vertebra.get_oriented_bounding_box()
             bounding_box.color = colors[i]
