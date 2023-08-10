@@ -62,8 +62,6 @@ class PointCloudProcessor:
             white_color = np.ones_like(np.asarray(self.pcd.colors)) / 2
             black_color[indices] = white_color[indices]
             colors = np.asarray(self.GT.colors)
-            print(colors[self.idx].shape)
-            print(black_color.shape)
             colors[self.idx] = black_color
             self.GT.colors = o3d.utility.Vector3dVector(colors)
             self.pcd = self.GT

@@ -27,12 +27,6 @@ def process_point_cloud(input_path: str, path_pose, gt_path=None):
     # Convert point cloud to numpy array for mathematical operations
     points_array = np.asarray(point_cloud.points)
 
-    # Extract maximum and minimum coordinates of the point cloud
-    max_coordinates = np.max(points_array, axis=0)
-    min_coordinates = np.min(points_array, axis=0)
-    print("Maximum coordinates:", max_coordinates)
-    print("Minimum coordinates:", min_coordinates)
-    print('Center of pointcloud:', point_cloud.get_center())
     # Initialize arrays to store combined point data and colors
     combined_points = []
     combined_colors = []
