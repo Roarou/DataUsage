@@ -89,7 +89,7 @@ def main():
         # For each directory in the list of directories.
         for dir_name in list_dir:
             subdirectory_path = os.path.join(recordings_path, dir_name)
-            pointcloud_directory = os.path.join(subdirectory_path, 'pointcloud')
+            pointcloud_directory = os.path.join(subdirectory_path, '')
 
             # Check if pointcloud directory exists in the subdirectory.
             if not os.path.isdir(pointcloud_directory):

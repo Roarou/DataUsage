@@ -1,7 +1,6 @@
 import open3d as o3d
 import numpy as np
 import os
-from DataProcessing.extract_tf_matrix_groundtruth import extract_transformation_matrices
 from DataProcessing.get_vertebras_displacement import visualize_displacements
 
 
@@ -107,7 +106,7 @@ def process_point_cloud(input_path: str, path_pose, gt_path=None):
 
 if __name__ == "__main__":
     # Define the input path
-    input_path = "Pointcloud/Video_1/Pointcloud_0.pcd"
+    input_path = "Video_1/Pointcloud_0.pcd"
     poses_1_file_path = "E:/Ghazi/Recordings/Recording0/Poses_1.txt"
     # Run the function
     idx = process_point_cloud(input_path=input_path)
