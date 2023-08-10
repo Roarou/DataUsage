@@ -5,7 +5,7 @@ from DataProcessing.extract_tf_matrix_groundtruth import extract_transformation_
 from DataProcessing.get_vertebras_displacement import visualize_displacements
 
 
-def process_point_cloud(input_path: str, path_pose):
+def process_point_cloud(input_path: str, path_pose, gt_path=None):
     """
     This function reads a point cloud from a file and processes it by applying the following steps:
     1. Defines a bounding box within the point cloud.
@@ -75,6 +75,7 @@ def process_point_cloud(input_path: str, path_pose):
     oriented_bbox.color = (1.0, 0.0, 0.0)  # Red
     # Get indices of points inside the bounding box
     inside_bbox_mask = oriented_bbox.get_point_indices_within_bounding_box(point_cloud.points)
+
     # Create a black color array for all points
     black_color = np.zeros_like(np.asarray(point_cloud.colors))
 
@@ -87,16 +88,21 @@ def process_point_cloud(input_path: str, path_pose):
     inside_bounding_box_indices = inside_bbox_mask
     # Set the color of points outside the bounding box to black
     black_color[inside_bounding_box_indices] = original_colors[inside_bounding_box_indices]
+
     # Update the color of the point cloud
     point_cloud.colors = o3d.utility.Vector3dVector(black_color)
     o3d.visualization.draw_geometries([point_cloud, oriented_bbox])
+
     # Extract the base filename and add '_GT' before the extension
     base_filename = os.path.basename(input_path)
     filename_without_extension, extension = os.path.splitext(base_filename)
     output_filename = filename_without_extension + "_GT" + extension
 
     # Combine with the original directory path
-    output_path = os.path.join(os.path.dirname(input_path), output_filename)
+    if gt_path:
+        output_path = os.path.join(gt_path, output_filename)
+    else:
+        output_path = os.path.join(os.path.dirname(input_path), output_filename)
 
     # Save the modified point cloud to the file
     o3d.io.write_point_cloud(output_path, point_cloud)
