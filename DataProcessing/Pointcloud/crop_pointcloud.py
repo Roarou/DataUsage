@@ -84,7 +84,7 @@ def process_point_cloud(input_path: str, path_pose, gt_path=None):
 
     # Update the color of the point cloud
     point_cloud.colors = o3d.utility.Vector3dVector(black_color)
-    o3d.visualization.draw_geometries([point_cloud, oriented_bbox])
+    # o3d.visualization.draw_geometries([point_cloud, oriented_bbox])
 
     # Extract the base filename and add '_GT' before the extension
     base_filename = os.path.basename(input_path)
