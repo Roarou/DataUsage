@@ -21,12 +21,11 @@ class PointCloudProcessor:
         """
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"No file found at {file_path}")
+        self.idx = idx
         self.file_path = file_path
         self.GT = o3d.io.read_point_cloud(file_path)
         self.pcd = self.GT.select_by_index(idx)
-        self.idx = []
-        self.idx.append(idx)
-
+        self.indice = []
     @staticmethod
     def load_point_cloud(file_path: str, downsampling_factor=2):
         """
@@ -50,20 +49,29 @@ class PointCloudProcessor:
         """
         self.pcd = self.pcd.voxel_down_sample(voxel_size)
 
-    def update_colors(self, indices):
+    def update_colors(self, indices, save=False):
         """
-        Update the colors of the point cloud, setting the specified indices to their original colors and the rest to black.
+        Update the colors of the point cloud, setting the specified indices to their original colors and the rest to
+        black.
 
         Args:
         - indices: list or array, indices of the points to keep their original colors.
         """
-        self.idx = indices
         black_color = np.zeros_like(np.asarray(self.pcd.colors))
-        white_color = np.ones_like(np.asarray(self.pcd.colors))/2
-        black_color[indices] = white_color[indices]
-        # original_color = np.asarray(self.pcd.colors)
-        # black_color[indices] = original_color[indices]
-        self.pcd.colors = o3d.utility.Vector3dVector(black_color)
+        if save:
+            white_color = np.ones_like(np.asarray(self.pcd.colors)) / 2
+            black_color[indices] = white_color[indices]
+            colors = np.asarray(self.GT.colors)
+            print(colors[self.idx].shape)
+            print(black_color.shape)
+            colors[self.idx] = black_color
+            self.GT.colors = o3d.utility.Vector3dVector(colors)
+            self.pcd = self.GT
+        else:
+            self.indice = indices
+            original_color = np.asarray(self.pcd.colors)
+            black_color[indices] = original_color[indices]
+            self.pcd.colors = o3d.utility.Vector3dVector(black_color)
 
     def remove_statistical_outliers(self, nb_neighbors=20, std_ratio=1.0):
         """
@@ -128,7 +136,7 @@ class PointCloudProcessor:
         """
         Visualize the input point cloud.
         """
-        self.save_point_cloud()
+        # self.save_point_cloud()
         o3d.visualization.draw_geometries([self.pcd])
 
     def save_point_cloud(self):
@@ -136,8 +144,7 @@ class PointCloudProcessor:
         Save the processed point cloud data back to the original file.
         """
         # Check if the file already exists
-        self.pcd = self.GT
-        self.update_colors(indices=idx)
+        self.update_colors(indices=self.indice, save=True)  # Use self.indice
         if os.path.exists(self.file_path):
             # If so, remove it
             os.remove(self.file_path)
@@ -242,7 +249,7 @@ def clean(file_path, idx, show_clusters=False, factor=8, rad=5, reconstruction=F
         colors[cluster_labels < 0] = 0
         pcd_copy = copy.deepcopy(pc_processor.pcd)
         pcd_copy.colors = o3d.utility.Vector3dVector(colors[:, :3])
-        # o3d.visualization.draw_geometries([pcd_copy])
+        o3d.visualization.draw_geometries([pcd_copy])
 
     # Apply multi-pass color filtering
     pc_processor.remove_outliers_with_isolation_forest()
@@ -252,11 +259,12 @@ def clean(file_path, idx, show_clusters=False, factor=8, rad=5, reconstruction=F
         pc_processor.color_filtering(n_passes=3, init_threshold=0.9, threshold_decay=0.8)
 
     # Visualize the final result
-    pc_processor.visualize_point_cloud()
+    # pc_processor.visualize_point_cloud()
 
     # Save the processed point cloud back to the original file
 
-    # pc_processor.save_point_cloud()
+    pc_processor.save_point_cloud()
+
 
 
 if __name__ == "__main__":
