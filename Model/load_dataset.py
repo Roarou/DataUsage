@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split
 import torch
 
 class PointcloudDataset(Dataset):
-    def __init__(self, base_path, split='train', test_size=0.2, val_size=0.2, random_state=42):
+    def __init__(self, base_path=r'G:\SpineDepth', split='train', test_size=0.1, val_size=0.1, random_state=42):
         """
         Custom dataset class for loading and managing point cloud data.
 
