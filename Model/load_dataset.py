@@ -2,12 +2,26 @@ import os
 import open3d as o3d
 import numpy as np
 from torch.utils.data import Dataset
+from sklearn.model_selection import train_test_split
 
 
 class PointcloudDataset(Dataset):
-    def __init__(self, base_path):
+    def __init__(self, base_path, split='train', test_size=0.2, val_size=0.2, random_state=42):
         self.base_path = base_path
         self.specimen_dirs = sorted([d for d in os.listdir(base_path) if d.startswith('Specimen')])
+
+        # Split the dataset into train, validation, and test sets
+        train_dirs, test_dirs = train_test_split(self.specimen_dirs, test_size=test_size, random_state=random_state)
+        train_dirs, val_dirs = train_test_split(train_dirs, test_size=val_size, random_state=random_state)
+
+        if split == 'train':
+            self.specimen_dirs = train_dirs
+        elif split == 'val':
+            self.specimen_dirs = val_dirs
+        elif split == 'test':
+            self.specimen_dirs = test_dirs
+        else:
+            raise ValueError("Invalid split mode. Use 'train', 'val', or 'test'.")
 
     def __len__(self):
         return len(self.specimen_dirs)
@@ -31,15 +45,24 @@ class PointcloudDataset(Dataset):
                     groundtruth_pcd = o3d.io.read_point_cloud(
                         os.path.join(groundtruth_dir, input_file.replace('.pcd', '_GT.pcd')))
 
-                    # Extract input data (points)
-                    input_data.append(np.array(input_pcd.points))
+                    # Normalize input data
+                    normalized_input = self.normalize_point_cloud(np.array(input_pcd.points))
 
                     # Extract labels (binary values based on color)
                     labeled_pcd = np.array(groundtruth_pcd.colors)[:, 0]
                     binary_labels = (labeled_pcd >= 0.5).astype(np.float32)
+
+                    input_data.append(normalized_input)
                     labels.append(binary_labels)
 
         input_data = np.array(input_data)
         labels = np.array(labels)
 
         return input_data, labels
+
+    def normalize_point_cloud(self, points):
+        centroid = np.mean(points, axis=0)
+        points -= centroid  # center
+        furthest_distance = np.max(np.sqrt(np.sum(abs(points) ** 2, axis=-1)))
+        points /= furthest_distance  # scale
+        return points
