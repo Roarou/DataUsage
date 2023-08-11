@@ -120,6 +120,11 @@ for epoch in range(epochs):
     writer.add_scalar('Test Precision', avg_test_metrics['precision'], epoch)
     writer.add_scalar('Test Recall', avg_test_metrics['recall'], epoch)
 
+    # Save the model after each epoch
+    model_save_path = f'model_epoch_{epoch + 1}.pt'
+    torch.save(model.state_dict(), model_save_path)
+    print(f'Model saved at: {model_save_path}')
+
 # After training, close the SummaryWriter
 writer.close()
 
