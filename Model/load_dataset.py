@@ -7,6 +7,16 @@ from sklearn.model_selection import train_test_split
 
 class PointcloudDataset(Dataset):
     def __init__(self, base_path, split='train', test_size=0.2, val_size=0.2, random_state=42):
+        """
+        Custom dataset class for loading and managing point cloud data.
+
+        Args:
+            base_path (str): Path to the root directory of the dataset.
+            split (str): Split mode: 'train', 'val', or 'test'.
+            test_size (float): Proportion of data to be used for testing.
+            val_size (float): Proportion of data to be used for validation.
+            random_state (int): Random seed for reproducibility.
+        """
         self.base_path = base_path
         self.specimen_dirs = sorted([d for d in os.listdir(base_path) if d.startswith('Specimen')])
 
@@ -24,9 +34,20 @@ class PointcloudDataset(Dataset):
             raise ValueError("Invalid split mode. Use 'train', 'val', or 'test'.")
 
     def __len__(self):
+        """Returns the number of specimens in the dataset."""
         return len(self.specimen_dirs)
 
     def __getitem__(self, idx):
+        """
+        Loads and preprocesses a specimen's data and labels.
+
+        Args:
+            idx (int): Index of the specimen to retrieve.
+
+        Returns:
+            input_data (np.ndarray): Normalized point cloud data.
+            labels (np.ndarray): Binary labels based on color values.
+        """
         specimen_dir = self.specimen_dirs[idx]
         recordings_dir = os.path.join(self.base_path, specimen_dir, 'Recordings')
 
@@ -61,6 +82,15 @@ class PointcloudDataset(Dataset):
         return input_data, labels
 
     def normalize_point_cloud(self, points):
+        """
+        Normalizes point cloud data.
+
+        Args:
+            points (np.ndarray): Point cloud data.
+
+        Returns:
+            np.ndarray: Normalized point cloud data.
+        """
         centroid = np.mean(points, axis=0)
         points -= centroid  # center
         furthest_distance = np.max(np.sqrt(np.sum(abs(points) ** 2, axis=-1)))
