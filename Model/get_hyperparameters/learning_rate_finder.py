@@ -1,7 +1,7 @@
 import pytorch_lightning as pl
 from torch.utils.data import Dataset, DataLoader
 from Model.pointnet import SpineSegmentationNet
-from Model.pointcloud_normalization import normalize_point_cloud
+from Archive.pointcloud_normalization import normalize_point_cloud
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
 
