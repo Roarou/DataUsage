@@ -25,7 +25,7 @@ optimizer = optim.Adam(model.parameters(), lr=0.001)
 # Number of epochs
 epochs = 10
 batch_size = 1
-data_path = r''
+data_path = r'G:\SpineDepth'
 # Define your dataset and dataloader
 train_dataset = PointcloudDataset(root_dir=data_path)  # Use appropriate parameters
 train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)  # Adjust batch_size as needed
