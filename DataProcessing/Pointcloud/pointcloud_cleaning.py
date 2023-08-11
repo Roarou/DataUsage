@@ -250,7 +250,8 @@ def clean(file_path, idx, show_clusters=False, factor=8, rad=5, reconstruction=F
         o3d.visualization.draw_geometries([pcd_copy])
 
     # Apply multi-pass color filtering
-    pc_processor.remove_outliers_with_isolation_forest()
+    if noisy_data:
+        pc_processor.remove_outliers_with_isolation_forest()
 
     if reconstruction:
         pc_processor.upsample_point_cloud(n_neighbors=3)
