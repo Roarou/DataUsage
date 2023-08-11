@@ -1,55 +1,46 @@
-import pytorch_lightning as pl
-from torch.utils.data import Dataset, DataLoader
-from Model.pointnet import SpineSegmentationNet
-from Archive.pointcloud_normalization import normalize_point_cloud
-from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
+from torch.utils.data import DataLoader
+import pytorch_lightning as pl
+from pytorch_lightning.loggers import TensorBoardLogger
+from Model.load_dataset import PointcloudDataset  # Import your custom dataset class
+from Model.get_hyperparameters.lr_spine_segmentation_net import PointCloudModule
 
+# Define the paths and parameters
+data_path = r'G:\SpineDepth'
+batch_size = 1
 
-# Define Dataset
-class PointCloudDataset(Dataset):
-    def __init__(self, file_list):
-        self.file_list = file_list
+# Create dataset and dataloaders
+train_dataset = PointcloudDataset(root_dir=data_path, split='train')
+val_dataset = PointcloudDataset(root_dir=data_path, split='val')
+test_dataset = PointcloudDataset(root_dir=data_path, split='test')
 
-    def __len__(self):
-        return len(self.file_list)
+train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
-    def __getitem__(self, idx):
-        point_cloud, labels = normalize_point_cloud(self.file_list[idx])  # Adjust according to your function
-        return point_cloud, labels
+# Initialize the Lightning module
+model = PointCloudModule(data_path=data_path)
 
-logger = TensorBoardLogger("tb_logs", name="Spine_Segmentation")
+# Initialize TensorBoard logger
+logger = TensorBoardLogger(save_dir='logs', name='spine_segmentation_experiment')
 
-# Define Learning Rate monitor
+# Initialize the Learning Rate Monitor callback
 lr_monitor = LearningRateMonitor(logging_interval='step')
 
-# Model Checkpoint callback
+# Initialize the ModelCheckpoint callback
 checkpoint_callback = ModelCheckpoint(
-    monitor='val_loss',
-    dirpath='my_model/',
-    filename='my_model-{epoch:02d}-{val_loss:.2f}',
-    save_top_k=3,
-    mode='min',
+    dirpath='checkpoints',
+    filename='model-{epoch:02d}',
+    save_top_k=-1,  # Save all checkpoints after each epoch
+    monitor='val_loss',  # Monitor the validation loss for checkpointing
+    mode='min'  # Save the model with the lowest validation loss
 )
 
-# Load your dataset
-# Suppose you have a list of point cloud files for training
-train_files = ['file1.pcd', 'file2.pcd', 'file3.pcd', ...]
-dataset = PointCloudDataset(train_files)
-dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
+# Initialize the Trainer for learning rate finder
+lr_finder_trainer = pl.Trainer(max_epochs=1, logger=logger, callbacks=[lr_monitor], auto_scale_batch_size='binsearch')
 
-# Define your model
-model = SpineSegmentationNet()
-
-# Use PyTorch Lightning's built-in learning rate finder
-# PyTorch Lightning trainer with Tensorboard Logger and Callbacks
-trainer = pl.Trainer(
-    gpus=1,
-    max_epochs=10,
-    logger=logger,
-    callbacks=[lr_monitor, checkpoint_callback],
-)
-lr_finder = trainer.tuner.lr_find(model, dataloader)
+# Find optimal learning rate
+lr_finder = lr_finder_trainer.tuner.lr_find(model, train_dataloader)
 
 # Plot learning rate finder results
 fig = lr_finder.plot(suggest=True)
@@ -59,11 +50,13 @@ fig.show()
 new_lr = lr_finder.suggestion()
 
 # Update learning rate of model
-model.learning_rate = new_lr
+model.hparams.learning_rate = new_lr
 
-# Train the model
-trainer = pl.Trainer(gpus=1, max_epochs=100)
-trainer.fit(model, dataloader)
+# Initialize the Trainer for actual training
+trainer = pl.Trainer(max_epochs=10, logger=logger, callbacks=[checkpoint_callback])
+
+# Start training
+trainer.fit(model, train_dataloader, val_dataloader=val_dataloader)
 
 # Test the model
-trainer.test(model, dataloader)
+trainer.test(model, test_dataloaders=test_dataloader)
