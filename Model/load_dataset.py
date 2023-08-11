@@ -1,45 +1,45 @@
 import os
 import open3d as o3d
 import numpy as np
-import torch
 from torch.utils.data import Dataset
 
-class PointCloudDataset(Dataset):
-    def __init__(self, base_dir):
-        self.base_dir = base_dir
-        self.specimen_folders = [f'Specimen_{i}' for i in range(1, 11)]
-        self.file_list = self._get_file_list()
 
-    def _get_file_list(self):
-        file_list = []
-        for specimen_folder in self.specimen_folders:
-            input_folder = os.path.join(self.base_dir, specimen_folder, 'Input')
-            file_list.extend([os.path.join(input_folder, filename) for filename in os.listdir(input_folder)])
-        return file_list
+class PointcloudDataset(Dataset):
+    def __init__(self, base_path):
+        self.base_path = base_path
+        self.specimen_dirs = sorted([d for d in os.listdir(base_path) if d.startswith('Specimen')])
 
     def __len__(self):
-        return len(self.file_list)
+        return len(self.specimen_dirs)
 
     def __getitem__(self, idx):
-        file_path = self.file_list[idx]
+        specimen_dir = self.specimen_dirs[idx]
+        recordings_dir = os.path.join(self.base_path, specimen_dir, 'Recordings')
 
-        # Load point cloud using Open3D
-        pcd = o3d.io.read_point_cloud(file_path)
+        input_data = []
+        labels = []
 
-        # Convert points to numpy array
-        points = np.array(pcd.points)
+        for recording_num in range(1, 41):
+            recording_dir = os.path.join(recordings_dir, f'Recording_{recording_num}')
+            for video_num in range(2):  # Iterate over 'Video_0' and 'Video_1'
+                video_dir = os.path.join(recording_dir, f'Video_{video_num}')
+                groundtruth_dir = os.path.join(video_dir, 'Groundtruth')
+                input_files = sorted([f for f in os.listdir(video_dir) if f.endswith('.pcd')])
 
-        # Load corresponding labeled point cloud
-        specimen_folder = os.path.basename(os.path.dirname(file_path))
-        groundtruth_folder = os.path.join(self.base_dir, specimen_folder, 'Groundtruth')
-        labeled_file_path = os.path.join(groundtruth_folder, os.path.basename(file_path))
-        labeled_pcd = o3d.io.read_point_cloud(labeled_file_path)
+                for input_file in input_files:
+                    input_pcd = o3d.io.read_point_cloud(os.path.join(video_dir, input_file))
+                    groundtruth_pcd = o3d.io.read_point_cloud(
+                        os.path.join(groundtruth_dir, input_file.replace('.pcd', '_GT.pcd')))
 
-        # Convert colors to binary labels based on threshold
-        binary_labels = (np.array(labeled_pcd.colors)[:, 0] >= 0.5).astype(np.float32)
+                    # Extract input data (points)
+                    input_data.append(np.array(input_pcd.points))
 
-        # Convert to PyTorch tensors
-        input_tensor = torch.tensor(points, dtype=torch.float32)
-        label_tensor = torch.tensor(binary_labels, dtype=torch.float32)
+                    # Extract labels (binary values based on color)
+                    labeled_pcd = np.array(groundtruth_pcd.colors)[:, 0]
+                    binary_labels = (labeled_pcd >= 0.5).astype(np.float32)
+                    labels.append(binary_labels)
 
-        return {'input': input_tensor, 'label': label_tensor}
+        input_data = np.array(input_data)
+        labels = np.array(labels)
+
+        return input_data, labels
