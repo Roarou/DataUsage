@@ -3,7 +3,7 @@ import open3d as o3d
 import numpy as np
 from torch.utils.data import Dataset
 from sklearn.model_selection import train_test_split
-
+import torch
 
 class PointcloudDataset(Dataset):
     def __init__(self, base_path, split='train', test_size=0.2, val_size=0.2, random_state=42):
@@ -78,6 +78,8 @@ class PointcloudDataset(Dataset):
 
         input_data = np.array(input_data)
         labels = np.array(labels)
+        input_data = torch.tensor(input_data, dtype=torch.float32)
+        labels = torch.tensor(labels, dtype=torch.float32)
 
         return input_data, labels
 
