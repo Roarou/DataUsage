@@ -238,20 +238,20 @@ def clean(file_path, idx, show_clusters=False, factor=8, rad=5, reconstruction=F
         pc_processor.remove_statistical_outliers(nb_neighbors=20, std_ratio=1.0)
         pc_processor.remove_radius_outliers(nb_points=10, radius=rad)
     # Perform clustering on the filtered point cloud data
-    cluster_labels, idx_labels = pc_processor.cluster_point_cloud(eps=factor, min_points=2,
+        cluster_labels, idx_labels = pc_processor.cluster_point_cloud(eps=factor, min_points=2,
                                                                   print_clusters=show_clusters)
 
-    if show_clusters:
-        # Assign a unique color to each cluster and visualize the result
-        colors = plt.get_cmap("tab20")(cluster_labels / (max(cluster_labels) if max(cluster_labels) > 0 else 1))
-        colors[cluster_labels < 0] = 0
-        pcd_copy = copy.deepcopy(pc_processor.pcd)
-        pcd_copy.colors = o3d.utility.Vector3dVector(colors[:, :3])
-        o3d.visualization.draw_geometries([pcd_copy])
+        if show_clusters:
+            # Assign a unique color to each cluster and visualize the result
+            colors = plt.get_cmap("tab20")(cluster_labels / (max(cluster_labels) if max(cluster_labels) > 0 else 1))
+            colors[cluster_labels < 0] = 0
+            pcd_copy = copy.deepcopy(pc_processor.pcd)
+            pcd_copy.colors = o3d.utility.Vector3dVector(colors[:, :3])
+            o3d.visualization.draw_geometries([pcd_copy])
 
     # Apply multi-pass color filtering
-    if noisy_data:
-        pc_processor.remove_outliers_with_isolation_forest()
+
+    pc_processor.remove_outliers_with_isolation_forest()
 
     if reconstruction:
         pc_processor.upsample_point_cloud(n_neighbors=3)

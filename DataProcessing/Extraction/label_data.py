@@ -21,11 +21,13 @@ def process_single_file(file_path, subdirectory_path, groundtruth_directory):
     filename = os.path.basename(file_path)
     if os.path.isfile(file_path) and filename.endswith('.pcd'):
         print(filename)
-        idx = process_point_cloud(file_path, path_pose=subdirectory_path, gt_path=groundtruth_directory)
-        filename_without_extension, extension = os.path.splitext(filename)
-        groundtruth_filename = filename_without_extension + "_GT" + extension
-        groundtruth_path = os.path.join(groundtruth_directory, groundtruth_filename)
-        clean(groundtruth_path, idx)
+        idx, SUCCESS = process_point_cloud(file_path, path_pose=subdirectory_path, gt_path=groundtruth_directory)
+        print(SUCCESS)
+        if SUCCESS:
+            filename_without_extension, extension = os.path.splitext(filename)
+            groundtruth_filename = filename_without_extension + "_GT" + extension
+            groundtruth_path = os.path.join(groundtruth_directory, groundtruth_filename)
+            clean(groundtruth_path, idx)
 
 
 def process_single_file_with_timeout(args):
@@ -75,7 +77,7 @@ def launch_data():
     """
     Launch data processing for all specimens and recordings.
     """
-    for i in range(1, 11):
+    for i in range(2, 11):
         specimen_directory = f'Specimen_{i}'  # Create specimen directory name
         specimen_directory_path = os.path.join(base_path, specimen_directory)
         recordings_directory = 'Recordings'
@@ -94,6 +96,7 @@ def launch_data():
                     print(f'Deleting {groundtruth_directory}')
                     shutil.rmtree(groundtruth_directory)
                 os.makedirs(groundtruth_directory, exist_ok=True)
+                print(f'Created {groundtruth_directory}')
                 process_video_directory(video_directory, subdirectory_path, groundtruth_directory)
 
 

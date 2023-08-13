@@ -98,10 +98,10 @@ def process_point_cloud(input_path: str, path_pose, gt_path=None):
         output_path = os.path.join(os.path.dirname(input_path), output_filename)
 
     # Save the modified point cloud to the file
-    o3d.io.write_point_cloud(output_path, point_cloud)
+    SUCCESS = o3d.io.write_point_cloud(output_path, point_cloud)
 
     print(f"Saved to {output_path}")
-    return inside_bounding_box_indices
+    return inside_bounding_box_indices, SUCCESS
 
 
 if __name__ == "__main__":
