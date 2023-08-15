@@ -5,7 +5,7 @@ import multiprocessing
 import shutil
 import time
 
-base_path = r'G:\SpineDepth'  # Base directory
+base_path = r'L:'  # Base directory
 TIMEOUT = 600  # Timeout in seconds
 
 
@@ -77,7 +77,7 @@ def launch_data():
     """
     Launch data processing for all specimens and recordings.
     """
-    for i in range(2, 11):
+    for i in range(6, 11):
         specimen_directory = f'Specimen_{i}'  # Create specimen directory name
         specimen_directory_path = os.path.join(base_path, specimen_directory)
         recordings_directory = 'Recordings'
