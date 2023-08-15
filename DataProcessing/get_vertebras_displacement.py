@@ -1,3 +1,5 @@
+import os.path
+
 import open3d as o3d
 from DataProcessing.Extraction.extract_tf_matrix_groundtruth import extract_transformation_matrices
 
@@ -15,9 +17,17 @@ def visualize_displacements(pose_file, frame, specimen):
         list: List of Open3D meshes representing the transformed vertebrae.
         ndarray: Transformation matrix of the first vertebra in the list.
     """
-    stl_files = [
-        f"G:/SpineDepth/Specimen_{specimen}/STL/L{iteration}.stl" for iteration in range(1, 6)
-    ]
+    if pose_file.startswith("L:"):
+        stl_files = [
+            f"L:/Specimen_{specimen}/STL/L{iteration}.stl" for iteration in range(1, 6)
+        ]
+    elif pose_file.startswith("G:"):
+        stl_files = [
+            f"G:/SpineDepth/Specimen_{specimen}/STL/L{iteration}.stl" for iteration in range(1, 6)
+        ]
+    else:
+        raise ValueError("The path should start with either 'L:' or 'G:'")
+
     # Read the transformation matrices from the STR file
     transformation_data = extract_transformation_matrices(pose_file)
     meshes = []
