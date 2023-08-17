@@ -27,15 +27,20 @@ epochs = 10
 batch_size = 1
 data_path = r'G:\SpineDepth'
 # Define your dataset and dataloader
-train_dataset = PointcloudDataset(root_dir=data_path)  # Use appropriate parameters
+train_dataset = PointcloudDataset()  # Use appropriate parameters
 train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)  # Adjust batch_size as needed
 
 # Define validation and test datasets and dataloaders
-val_dataset = PointcloudDataset(root_dir=data_path)  # Use appropriate parameters
-test_dataset = PointcloudDataset(root_dir=data_path)  # Use appropriate parameters
+val_dataset = PointcloudDataset(split='val')  # Use appropriate parameters
+test_dataset = PointcloudDataset(split='test')  # Use appropriate parameters
 val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
-
+for batch_idx, (inputs, labels) in enumerate(train_dataloader):
+    print('test')
+    print(f"Batch {batch_idx + 1}:")
+    print("Inputs:", inputs)
+    print("Labels:", labels)
+    print("-" * 40)  # Separator between batches
 for epoch in range(epochs):
     running_loss = 0.0
     model.train()
