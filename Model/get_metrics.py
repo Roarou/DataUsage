@@ -1,10 +1,38 @@
-import torchmetrics
+import torch
+import numpy as np
 
-# Define metrics outside of the function
-iou_metric = torchmetrics.IoU(num_classes=2)
-f1_metric = torchmetrics.F1(num_classes=2, average='weighted')
-precision_metric = torchmetrics.Precision(num_classes=2, average='weighted')
-recall_metric = torchmetrics.Recall(num_classes=2, average='weighted')
+
+# Define custom metrics functions
+def calculate_iou(pred, target):
+    intersection = torch.sum(pred * target)
+    union = torch.sum(pred) + torch.sum(target) - intersection
+    iou = intersection / (union + 1e-7)  # Adding a small epsilon to avoid division by zero
+    return iou
+
+
+def calculate_f1(pred, target):
+    # Calculate F1 score
+    tp = torch.sum(pred * target)
+    fp = torch.sum(pred) - tp
+    fn = torch.sum(target) - tp
+    precision = tp / (tp + fp + 1e-7)
+    recall = tp / (tp + fn + 1e-7)
+    f1 = 2 * (precision * recall) / (precision + recall + 1e-7)
+    return f1
+
+
+def calculate_precision(pred, target):
+    tp = torch.sum(pred * target)
+    fp = torch.sum(pred) - tp
+    precision = tp / (tp + fp + 1e-7)
+    return precision
+
+
+def calculate_recall(pred, target):
+    tp = torch.sum(pred * target)
+    fn = torch.sum(target) - tp
+    recall = tp / (tp + fn + 1e-7)
+    return recall
 
 
 def calculate_metrics(pred, target):
@@ -25,23 +53,24 @@ def calculate_metrics(pred, target):
     pred_classes = (pred >= 0.5).float()
 
     # Calculate metrics
-    iou = iou_metric(pred_classes, target)
-    f1 = f1_metric(pred_classes, target)
-    precision = precision_metric(pred_classes, target)
-    recall = recall_metric(pred_classes, target)
-    # print(f"iou:  {iou}, precision: {precision}, recall: {recall}, f1: {f1}")
+    iou = calculate_iou(pred_classes, target)
+    f1 = calculate_f1(pred_classes, target)
+    precision = calculate_precision(pred_classes, target)
+    recall = calculate_recall(pred_classes, target)
+
     # Put metrics in dictionary
     metrics = {
-        'IoU': iou,
-        'F1': f1,
-        'Precision': precision,
-        'Recall': recall
+        'IoU': iou.item(),
+        'F1': f1.item(),
+        'Precision': precision.item(),
+        'Recall': recall.item()
     }
 
     return metrics
 
 
 if __name__ == "__main__":
-    pred = 0
-    target = 0
-    calculate_metrics(pred,target)
+    pred = torch.tensor([0.3, 0.6, 0.8])
+    target = torch.tensor([0, 1, 1])
+    metrics = calculate_metrics(pred, target)
+    print(metrics)
