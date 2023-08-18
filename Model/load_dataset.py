@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 
 class PointcloudDataset(Dataset):
-    def __init__(self, base_path=r'G:\SpineDepth', split='train', test_size=0.1, val_size=0.1, random_state=42):
+    def __init__(self, base_path=r'G:\SpineDepth\groundtruth_labeled', split='train', test_size=0.1, val_size=0.1, random_state=42):
         """
         Custom dataset class for loading and managing point cloud data.
 
@@ -82,5 +82,5 @@ class PointcloudDataset(Dataset):
         if furthest_distance == 0.0:
             raise ValueError("Furthest distance is zero, which can cause division by zero.")
 
-        points /= furthest_distance  # scale
+        points /= (furthest_distance + 1e-7)  # scale
         return points
