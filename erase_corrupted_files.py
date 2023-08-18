@@ -1,7 +1,7 @@
 import os
 import open3d as o3d
 
-base_directory = r'G:\SpineDepth\Specimen_2\Recordings'
+base_directory = r'L:\Specimen_10\Recordings'
 
 for i in range(1,40):
     recording_folder_name = f"Recording{i}"
@@ -17,6 +17,7 @@ for i in range(1,40):
             for filename in os.listdir(video_folder_path):
                 file_path = os.path.join(video_folder_path, filename)
                 if os.path.isfile(file_path) and filename.endswith('.pcd'):
+                    print(file_path)
                     groundtruth_path = os.path.join(video_folder_path, 'Groundtruth')
                     filename_without_extension, extension = os.path.splitext(filename)
                     groundtruth_filename = filename_without_extension + "_GT" + extension
