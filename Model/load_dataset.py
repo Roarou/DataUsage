@@ -7,8 +7,27 @@ import torch
 from tqdm import tqdm
 
 
+def normalize_point_cloud(points):
+    if np.any(np.isnan(points)):
+        raise ValueError("Input data contains NaN values.")
+
+    centroid = np.mean(points, axis=0)
+
+    if np.any(np.isnan(centroid)):
+        raise ValueError("Centroid calculation resulted in NaN values.")
+
+    points -= centroid  # center
+    furthest_distance = np.max(np.sqrt(np.sum(points ** 2, axis=-1)))
+
+    if furthest_distance == 0.0:
+        raise ValueError("Furthest distance is zero, which can cause division by zero.")
+
+    points /= (furthest_distance + 1e-7)  # scale
+    return points
+
+
 class PointcloudDataset(Dataset):
-    def __init__(self, base_path=r'G:\SpineDepth\groundtruth_labeled', split='train', test_size=0.1, val_size=0.1, random_state=42):
+    def __init__(self, base_path=r'G:\SpineDepth\groundtruth_labeled', split='train', test_size=0.1, val_size=0.1, random_state=42, num_points=600000):
         """
         Custom dataset class for loading and managing point cloud data.
 
@@ -19,8 +38,10 @@ class PointcloudDataset(Dataset):
             val_size (float): Proportion of data to be used for validation.
             random_state (int): Random seed for reproducibility.
         """
-        self.root_dir =base_path
+        self.root_dir = base_path
         self.file_list = os.listdir(self.root_dir)
+        self.target_num_points = num_points
+
         # Split the dataset into train, validation, and test sets
         train_dirs, test_dirs = train_test_split(self.file_list, test_size=test_size, random_state=random_state)
         train_dirs, val_dirs = train_test_split(train_dirs, test_size=val_size, random_state=random_state)
@@ -57,30 +78,17 @@ class PointcloudDataset(Dataset):
 
         # Normalize input data
         input = np.asarray(input_pcd.points)
-        normalized_input = self.normalize_point_cloud(input)
         # Extract labels (binary values based on color)
         labeled_pcd = np.asarray(input_pcd.colors)[:, 0]
+        if len(input) > self.target_num_points:
+            sampled_indices = np.random.choice(len(input), self.target_num_points, replace=False)
+            input = input[sampled_indices]
+            labeled_pcd = labeled_pcd[sampled_indices]
+
+        normalized_input = normalize_point_cloud(input)
         binary_labels = (labeled_pcd >= 0.5).astype(np.float32)
 
         input_data = torch.tensor(normalized_input, dtype=torch.float32)
         labels = torch.tensor(binary_labels, dtype=torch.float32)
 
         return input_data, labels
-
-    def normalize_point_cloud(self, points):
-        if np.any(np.isnan(points)):
-            raise ValueError("Input data contains NaN values.")
-
-        centroid = np.mean(points, axis=0)
-
-        if np.any(np.isnan(centroid)):
-            raise ValueError("Centroid calculation resulted in NaN values.")
-
-        points -= centroid  # center
-        furthest_distance = np.max(np.sqrt(np.sum(points ** 2, axis=-1)))
-
-        if furthest_distance == 0.0:
-            raise ValueError("Furthest distance is zero, which can cause division by zero.")
-
-        points /= (furthest_distance + 1e-7)  # scale
-        return points
