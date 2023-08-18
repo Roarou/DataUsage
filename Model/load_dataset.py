@@ -19,10 +19,10 @@ class PointcloudDataset(Dataset):
             val_size (float): Proportion of data to be used for validation.
             random_state (int): Random seed for reproducibility.
         """
-        self.base_path = base_path
-        self.specimen_dirs = sorted([d for d in os.listdir(base_path) if d.startswith('Specimen')])
+        self.root_dir =base_path
+        self.file_list = os.listdir(self.root_dir)
         # Split the dataset into train, validation, and test sets
-        train_dirs, test_dirs = train_test_split(self.specimen_dirs, test_size=test_size, random_state=random_state)
+        train_dirs, test_dirs = train_test_split(self.file_list, test_size=test_size, random_state=random_state)
         train_dirs, val_dirs = train_test_split(train_dirs, test_size=val_size, random_state=random_state)
 
         if split == 'train':
@@ -49,39 +49,21 @@ class PointcloudDataset(Dataset):
             input_data (np.ndarray): Normalized point cloud data.
             labels (np.ndarray): Binary labels based on color values.
         """
-        specimen_dir = self.specimen_dirs[idx]
-        recordings_dir = os.path.join(self.base_path, specimen_dir, 'Recordings')
+        filename = self.file_list[idx]
+        file_path = os.path.join(self.root_dir, filename)
 
-        input_data = []
-        labels = []
-        for recording_num in tqdm(range(1, 40), desc="Recordings", leave=False):
-            recording_dir = os.path.join(recordings_dir, f'Recording{recording_num}')
-            recording_dir = os.path.join(recording_dir, 'pointcloud')
+        input_pcd = o3d.io.read_point_cloud(file_path, remove_nan_points=True,
+                                            remove_infinite_points=True)
 
-            for video_num in range(2):  # Iterate over 'Video_0' and 'Video_1'
-                video_dir = os.path.join(recording_dir, f'Video_{video_num}')
-                groundtruth_dir = os.path.join(video_dir, 'Groundtruth')
-                input_files = sorted([f for f in os.listdir(groundtruth_dir) if f.endswith('.pcd')])
+        # Normalize input data
+        input = np.asarray(input_pcd.points)
+        normalized_input = self.normalize_point_cloud(input)
+        # Extract labels (binary values based on color)
+        labeled_pcd = np.asarray(input_pcd.colors)[:, 0]
+        binary_labels = (labeled_pcd >= 0.5).astype(np.float32)
 
-                for input_file in tqdm(input_files, desc="Files", leave=False):
-                    file_path = os.path.join(groundtruth_dir, input_file)
-                    input_pcd = o3d.io.read_point_cloud(file_path, remove_nan_points=True,
-                                                        remove_infinite_points=True)
-
-                    # Normalize input data
-                    input = np.asarray(input_pcd.points)
-                    normalized_input = self.normalize_point_cloud(input)
-                    # Extract labels (binary values based on color)
-                    labeled_pcd = np.asarray(input_pcd.colors)[:, 0]
-                    binary_labels = (labeled_pcd >= 0.5).astype(np.float32)
-                    input_data.append(normalized_input)
-                    labels.append(binary_labels)
-
-        input_data = np.array(input_data)
-        labels = np.array(labels)
-        print(labels)
-        input_data = torch.tensor(input_data, dtype=torch.float32)
-        labels = torch.tensor(labels, dtype=torch.float32)
+        input_data = torch.tensor(normalized_input, dtype=torch.float32)
+        labels = torch.tensor(binary_labels, dtype=torch.float32)
 
         return input_data, labels
 
