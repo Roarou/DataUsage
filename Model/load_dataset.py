@@ -4,6 +4,7 @@ import numpy as np
 from torch.utils.data import Dataset
 from sklearn.model_selection import train_test_split
 import torch
+from tqdm import tqdm
 
 
 class PointcloudDataset(Dataset):
@@ -53,26 +54,25 @@ class PointcloudDataset(Dataset):
 
         input_data = []
         labels = []
-        print('test2')
-        for recording_num in range(1, 41):
+        for recording_num in tqdm(range(1, 40), desc="Recordings", leave=False):
             recording_dir = os.path.join(recordings_dir, f'Recording{recording_num}')
             recording_dir = os.path.join(recording_dir, 'pointcloud')
 
             for video_num in range(2):  # Iterate over 'Video_0' and 'Video_1'
                 video_dir = os.path.join(recording_dir, f'Video_{video_num}')
                 groundtruth_dir = os.path.join(video_dir, 'Groundtruth')
-                input_files = sorted([f for f in os.listdir(video_dir) if f.endswith('.pcd')])
+                input_files = sorted([f for f in os.listdir(groundtruth_dir) if f.endswith('.pcd')])
 
-                for input_file in input_files:
-                    input_pcd = o3d.io.read_point_cloud(os.path.join(video_dir, input_file), remove_nan_points=True, remove_infinite_points=True)
-                    groundtruth_pcd = o3d.io.read_point_cloud(
-                        os.path.join(groundtruth_dir, input_file.replace('.pcd', '_GT.pcd')))
+                for input_file in tqdm(input_files, desc="Files", leave=False):
+                    file_path = os.path.join(groundtruth_dir, input_file)
+                    input_pcd = o3d.io.read_point_cloud(file_path, remove_nan_points=True,
+                                                        remove_infinite_points=True)
 
                     # Normalize input data
                     input = np.asarray(input_pcd.points)
                     normalized_input = self.normalize_point_cloud(input)
                     # Extract labels (binary values based on color)
-                    labeled_pcd = np.asarray(groundtruth_pcd.colors)[:, 0]
+                    labeled_pcd = np.asarray(input_pcd.colors)[:, 0]
                     binary_labels = (labeled_pcd >= 0.5).astype(np.float32)
                     input_data.append(normalized_input)
                     labels.append(binary_labels)
@@ -102,4 +102,3 @@ class PointcloudDataset(Dataset):
 
         points /= furthest_distance  # scale
         return points
-
