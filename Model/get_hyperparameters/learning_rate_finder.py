@@ -10,9 +10,9 @@ data_path = r'G:\SpineDepth'
 batch_size = 1
 
 # Create dataset and dataloaders
-train_dataset = PointcloudDataset(root_dir=data_path, split='train')
-val_dataset = PointcloudDataset(root_dir=data_path, split='val')
-test_dataset = PointcloudDataset(root_dir=data_path, split='test')
+train_dataset = PointcloudDataset(split='train')
+val_dataset = PointcloudDataset(split='val')
+test_dataset = PointcloudDataset( split='test')
 
 train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
@@ -37,7 +37,7 @@ checkpoint_callback = ModelCheckpoint(
 )
 
 # Initialize the Trainer for learning rate finder
-lr_finder_trainer = pl.Trainer(max_epochs=1, logger=logger, callbacks=[lr_monitor], auto_scale_batch_size='binsearch')
+lr_finder_trainer = pl.Trainer(max_epochs=1, logger=logger, callbacks=[lr_monitor])
 
 # Find optimal learning rate
 lr_finder = lr_finder_trainer.tuner.lr_find(model, train_dataloader)
@@ -51,6 +51,7 @@ new_lr = lr_finder.suggestion()
 
 # Update learning rate of model
 model.hparams.learning_rate = new_lr
+
 
 # Initialize the Trainer for actual training
 trainer = pl.Trainer(max_epochs=10, logger=logger, callbacks=[checkpoint_callback])
