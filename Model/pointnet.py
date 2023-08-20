@@ -1,58 +1,80 @@
 import torch
-from torch.nn import Sequential as Seq, Linear as Lin, ReLU
+import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.nn import fps, radius, global_max_pool
-from torch_geometric.nn.conv import PointConv
-
-class SAModule(torch.nn.Module):
-    """ PointNet++ Set Abstraction (SA) Module """
-    def __init__(self, ratio, r, nn):
-        super(SAModule, self).__init__()
-        self.ratio = ratio  # sampling ratio
-        self.r = r  # radius of neighborhood
-        self.conv = PointConv(nn)  # applying a shared MLP to each neighborhood
-
-    def forward(self, x, pos, batch):
-        # FPS sampling on 'pos' with respect to batch
-        idx = fps(pos, batch, ratio=self.ratio)
-
-        # Radius search in 'pos' with respect to the centroids at 'pos[idx]'
-        row, col = radius(pos, pos[idx], self.r, batch, batch[idx], max_num_neighbors=64)
-
-        # Constructing edge indices and applying PointConv
-        edge_index = torch.stack([col, row], dim=0)
-        x = self.conv(x, (pos, pos[idx]), edge_index)
-
-        # Max pooling over each neighborhood and updating 'batch' and 'pos'
-        x = global_max_pool(x, batch[idx])
-        pos, batch = pos[idx], batch[idx]
-        return x, pos, batch
+from torch_geometric.nn import knn
 
 
-class SpineSegmentationNet(torch.nn.Module):
-    """ The PointNet++ model for spine segmentation """
+class SetAbstraction(nn.Module):
+    def __init__(self, in_channels, out_channels, sample_points, group_points):
+        super().__init__()
+        self.sample_points = sample_points
+        self.group_points = group_points
+        self.mlp = nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, 1),
+            nn.ReLU(),
+            nn.Conv2d(out_channels, out_channels, 1)
+        )
+
+    def forward(self, x):
+        # Randomly sample points
+        idx = torch.randperm(x.size(1))[:self.sample_points]
+        sampled_x = x[:, idx, :]
+
+        # Find K nearest neighbors
+        neighbors = knn(x, sampled_x, self.group_points, include_self=True)
+        neighbors = neighbors[1]
+
+        # Group neighbors
+        groups = x[:, neighbors, :]
+
+        # Apply MLPs
+        features = self.mlp(groups)
+
+        # Max Pooling
+        features, _ = torch.max(features, dim=2)
+
+        return features, sampled_x
+
+
+class FeaturePropagation(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+        self.mlp = nn.Sequential(
+            nn.Conv1d(in_channels, out_channels, 1),
+            nn.ReLU(),
+            nn.Conv1d(out_channels, out_channels, 1)
+        )
+
+    def forward(self, x, sampled_x, features):
+        # Interpolate features
+        dists, idx = knn(sampled_x, x, 3, include_self=False)
+        interpolated_features = torch.sum(features[:, idx, :], dim=2) / 3
+
+        # Concatenate with input features
+        x = torch.cat([x, interpolated_features], dim=-1)
+
+        # Apply MLP
+        x = self.mlp(x)
+
+        return x
+
+
+class SpineSegmentationNet(nn.Module):
     def __init__(self):
-        super(SpineSegmentationNet, self).__init__()
+        super().__init__()
+        self.sa1 = SetAbstraction(3, 64, 512, 32)
+        self.sa2 = SetAbstraction(64, 128, 128, 32)
+        self.fp1 = FeaturePropagation(128 + 64, 64)
+        self.fp2 = FeaturePropagation(64 + 3, 32)
+        self.fc = nn.Linear(32, 2)  # Binary classification
 
-        # Encoder part using SAModule
-        self.sa1_module = SAModule(0.5, 0.2, Seq(Lin(3, 64), ReLU(), Lin(64, 64), ReLU(), Lin(64, 128)))
-        self.sa2_module = SAModule(0.25, 0.4, Seq(Lin(128, 128), ReLU(), Lin(128, 128), ReLU(), Lin(128, 256)))
+    def forward(self, x):
+        x1, s1 = self.sa1(x)
+        x2, s2 = self.sa2(x1)
 
-        # Decoder part using linear layers
-        self.lin1 = Lin(256, 256)
-        self.lin2 = Lin(256, 128)
-        self.lin3 = Lin(128, 1)  # single output for binary segmentation
+        x2 = self.fp1(x1, s1, x2)
+        x2 = self.fp2(x, s2, x2)
 
-    def forward(self, data):
-        # Forward pass through the encoder part
-        x, pos, batch = data.x, data.pos, data.batch
-        x1, pos1, batch1 = self.sa1_module(x, pos, batch)
-        x2, pos2, batch2 = self.sa2_module(x1, pos1, batch1)
+        x = self.fc(x2)
 
-        # Forward pass through the decoder part
-        x = self.lin1(x2)
-        x = F.relu(x)
-        x = self.lin2(x)
-        x = F.relu(x)
-        x = self.lin3(x)
-        return F.sigmoid(x)  # return probabilities for each point being part of the spine
+        return F.log_softmax(x, dim=1)
