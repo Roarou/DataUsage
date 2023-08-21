@@ -4,18 +4,15 @@ import open3d as o3d
 import shutil
 
 
-
-
 def main():
     """This function organizes and labels point cloud data files related to spine depth measurements."""
     print('test')
     # Loop through 40 recordings
-    for j in range(6, 11):
+    for j in range(1, 2):
         # Define the specimen name and base directory for recordings
         spec = f'Specimen_{j}'
-        base_directory = f'L:\{spec}\Recordings'
+        base_directory = f'D:\Ghazi\{spec}\Recordings'
         for i in range(40):
-            print('test')
             # Generate the recording folder name
             recording_folder_name = f"Recording{i}"
 
@@ -51,13 +48,13 @@ def main():
 
                             try:
                                 # Specify the new path for the file
-                                # new_path = os.path.join(r'G:\SpineDepth\groundtruth_labeled', filename)
+                                new_path = os.path.join(r'G:\SpineDepth\groundtruth_labeled', filename)
                                 # Move the file to the new path
-                                # shutil.move(file_path, new_path)
+                                shutil.move(file_path, new_path)
 
-                                new_filename = f"{filename_without_extension}_{spec}_{recording_folder_name}_{video_folder}.pcd"
-                                new_path = os.path.join(groundtruth_path, new_filename)
-                                os.rename(file_path, new_path)
+                                # new_filename = f"{filename_without_extension}_{spec}_{recording_folder_name}_{video_folder}.pcd"
+                                # new_path = os.path.join(groundtruth_path, new_filename)
+                                # os.rename(file_path, new_path)
                                 # Print message indicating successful file renaming and moving
                                 print(f"File '{file_path}' moved to {new_path}")
                             except FileNotFoundError:

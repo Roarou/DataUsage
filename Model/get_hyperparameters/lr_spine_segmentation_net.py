@@ -1,6 +1,6 @@
 import pytorch_lightning as pl
 from torch import nn
-from Model.pointnet import SpineSegmentationNet
+from Model.spine_segmentation import SpineSegmentationNet
 import torch.optim as optim
 from Model.get_metrics import calculate_metrics
 
