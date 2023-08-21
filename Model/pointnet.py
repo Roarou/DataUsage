@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch_geometric.nn import knn
 
 
@@ -10,31 +9,56 @@ class SetAbstraction(nn.Module):
         self.sample_points = sample_points
         self.group_points = group_points
         self.mlp = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, 1),
+            nn.Conv1d(in_channels, out_channels, 1),
             nn.ReLU(),
-            nn.Conv2d(out_channels, out_channels, 1)
+            nn.Conv1d(out_channels, out_channels, 1)
         )
 
     def forward(self, x):
-        # Randomly sample points
-        idx = torch.randperm(x.size(1))[:self.sample_points]
-        sampled_x = x[:, idx, :]
+        # Get batch size, number of points, and number of features
+        batch_size, num_points, num_features = x.size()
 
-        # Find K nearest neighbors
-        neighbors = knn(x, sampled_x, self.group_points, include_self=True)
-        neighbors = neighbors[1]
+        # List to collect the output for each point cloud in the batch
+        features_list = []
+        sampled_x_list = []
 
-        # Group neighbors
-        groups = x[:, neighbors, :]
+        # Process each point cloud in the batch
+        for i in range(batch_size):
+            # Inside the loop, make sure both point_cloud and sampled_x are 2D tensors
+            print(i)
+            point_cloud = x[i, :, :]
 
-        # Apply MLPs
-        features = self.mlp(groups)
+            idx = torch.randperm(num_points)[:self.sample_points]
+            sampled_x = point_cloud[idx, :]
 
-        # Max Pooling
-        features, _ = torch.max(features, dim=2)
+            # Ensure that both tensors are 2D before passing them to the KNN function
+            neighbors = knn(point_cloud, sampled_x, self.group_points)
+            neighbors = neighbors[1]
 
-        return features, sampled_x
+            # Group neighbors
+            groups = point_cloud[neighbors, :]
+            groups = groups.permute(1, 0)
 
+            # Apply MLPs
+            features = self.mlp(groups)
+
+            # Max Pooling
+            features, _ = torch.max(features, dim=1)
+
+            # Append to the list
+            features_list.append(features)
+            sampled_x_list.append(sampled_x)
+
+
+        # Stack results to get the batched output
+
+        # Add the missing dimension back (assuming it should be added as the third dimension)
+        features_batch = torch.cat(features_list, dim=0).view(batch_size, -1, self.sample_points)
+        sampled_x_batch = torch.cat(sampled_x_list, dim=0).view(batch_size, -1, self.sample_points)
+
+        print(features_batch.shape)
+        print(sampled_x_batch.shape)
+        return features_batch, sampled_x_batch
 
 class FeaturePropagation(nn.Module):
     def __init__(self, in_channels, out_channels):
@@ -47,7 +71,7 @@ class FeaturePropagation(nn.Module):
 
     def forward(self, x, sampled_x, features):
         # Interpolate features
-        dists, idx = knn(sampled_x, x, 3, include_self=False)
+        dists, idx = knn(sampled_x, x, 3)
         interpolated_features = torch.sum(features[:, idx, :], dim=2) / 3
 
         # Concatenate with input features
@@ -77,4 +101,4 @@ class SpineSegmentationNet(nn.Module):
 
         x = self.fc(x2)
 
-        return F.log_softmax(x, dim=1)
+        return torch.sigmoid(x)
