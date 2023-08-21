@@ -7,16 +7,7 @@ from tqdm import tqdm
 from Model.pointnet import SpineSegmentationNet
 from Model.load_dataset import PointcloudDataset  # Replace with the proper file name
 from Model.get_metrics import calculate_metrics
-base_path = r'G:\SpineDepth\groundtruth_labeled'  # Path to your dataset
-num_points = 340000  # Number of points to sample
 
-train_dataset = PointcloudDataset(base_path=base_path, split='train', num_points=num_points)
-test_dataset = PointcloudDataset(base_path=base_path, split='test', num_points=num_points)
-validation_dataset = PointcloudDataset(base_path=base_path, split='val', num_points=num_points)
-
-train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
-test_loader = DataLoader(test_dataset, batch_size=32)
-validation_loader = DataLoader(validation_dataset, batch_size=32)
 
 def train(model, train_loader, optimizer, epoch, writer):
     model.train()
@@ -63,9 +54,12 @@ if __name__ == '__main__':
     optimizer = optim.Adam(model.parameters(), lr=0.001)
 
     # Prepare DataLoader for train, test, validation
-    train_dataset = PointcloudDataset('train')
-    test_dataset = PointcloudDataset('test')
-    validation_dataset = PointcloudDataset('validation')
+    base_path = r'G:\SpineDepth\groundtruth_labeled'  # Path to your dataset
+    num_points = 340000  # Number of points to sample
+
+    train_dataset = PointcloudDataset(base_path=base_path, split='train', num_points=num_points)
+    test_dataset = PointcloudDataset(base_path=base_path, split='test', num_points=num_points)
+    validation_dataset = PointcloudDataset(base_path=base_path, split='val', num_points=num_points)
 
     train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=32)
