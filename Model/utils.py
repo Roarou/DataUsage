@@ -5,12 +5,16 @@ import torch.nn.functional as F
 
 def index_points(points, idx):
     """
+    This function is used to gather specific points from a given tensor according to provided indices.
 
     Input:
-        points: input points data, [B, N, C]
-        idx: sample index data, [B, S]
+        points (torch.Tensor): A tensor representing the input points data, with shape [B, N, C],
+                               where B is the batch size, N is the number of points, and C is the number of features.
+        idx (torch.Tensor): A tensor representing the sample index data, with shape [B, S],
+                            where B is the batch size, and S is the number of samples.
+
     Return:
-        new_points:, indexed points data, [B, S, C]
+        new_points (torch.Tensor): A tensor containing the indexed points data, with shape [B, S, C].
     """
     device = points.device
     B = points.shape[0]
@@ -25,11 +29,15 @@ def index_points(points, idx):
 
 def farthest_point_sample(xyz, npoint):
     """
+    This function samples the farthest points in a point cloud according to Euclidean distance.
+
     Input:
-        xyz: pointcloud data, [B, N, 3]
-        npoint: number of samples
+        xyz (torch.Tensor): A tensor representing the point cloud data, with shape [B, N, 3],
+                            where B is the batch size, N is the number of points.
+        npoint (int): Number of samples to be taken from the point cloud.
+
     Return:
-        centroids: sampled pointcloud index, [B, npoint]
+        centroids (torch.Tensor): A tensor containing the indices of the sampled points, with shape [B, npoint].
     """
     device = xyz.device
     B, N, C = xyz.shape
@@ -49,7 +57,7 @@ def farthest_point_sample(xyz, npoint):
 
 def square_distance(src, dst):
     """
-    Calculate Euclid distance between each two points.
+    This function calculates the square of Euclidean distance between two sets of points.
 
     src^T * dst = xn * xm + yn * ym + zn * zm；
     sum(src^2, dim=-1) = xn*xn + yn*yn + zn*zn;
@@ -58,10 +66,12 @@ def square_distance(src, dst):
          = sum(src**2,dim=-1)+sum(dst**2,dim=-1)-2*src^T*dst
 
     Input:
-        src: source points, [B, N, C]
-        dst: target points, [B, M, C]
+        src (torch.Tensor): Source points, with shape [B, N, C], where B is the batch size, N is the number of points,
+                            and C is the number of features.
+        dst (torch.Tensor): Target points, with shape [B, M, C], where B is the batch size, M is the number of points,
+                            and C is the number of features.
     Output:
-        dist: per-point square distance, [B, N, M]
+        dist (torch.Tensor): Per-point square distance between source and target points, with shape [B, N, M].
     """
     B, N, _ = src.shape
     _, M, _ = dst.shape
@@ -73,13 +83,16 @@ def square_distance(src, dst):
 
 def query_ball_point(radius, nsample, xyz, new_xyz):
     """
+    This function finds points within a certain radius in the vicinity of a set of query points.
+
     Input:
-        radius: local region radius
-        nsample: max sample number in local region
-        xyz: all points, [B, N, 3]
-        new_xyz: query points, [B, S, 3]
+        radius (float): The radius defining the local region.
+        nsample (int): Maximum number of samples to be taken in the local region.
+        xyz (torch.Tensor): All points to be considered, with shape [B, N, 3], where B is the batch size, and N is the number of points.
+        new_xyz (torch.Tensor): Query points, with shape [B, S, 3], where B is the batch size, and S is the number of samples.
+
     Return:
-        group_idx: grouped points index, [B, S, nsample]
+        group_idx (torch.Tensor): A tensor containing the indices of the grouped points, with shape [B, S, nsample].
     """
     device = xyz.device
     B, N, C = xyz.shape
@@ -144,9 +157,7 @@ class PointNetSetAbstractionMsg(nn.Module):
             new_xyz: sampled points position data, [B, C, S]
             new_points_concat: sample points feature data, [B, D', S]
         """
-        xyz = xyz.permute(0, 2, 1)
-        if points is not None:
-            points = points.permute(0, 2, 1)
+
 
         B, N, C = xyz.shape
         S = self.npoint
@@ -154,6 +165,7 @@ class PointNetSetAbstractionMsg(nn.Module):
         new_points_list = []
         for i, radius in enumerate(self.radius_list):
             K = self.nsample_list[i]
+            print(i)
             group_idx = query_ball_point(radius, K, xyz, new_xyz)
             grouped_xyz = index_points(xyz, group_idx)
             grouped_xyz -= new_xyz.view(B, S, 1, C)
@@ -165,9 +177,12 @@ class PointNetSetAbstractionMsg(nn.Module):
 
             grouped_points = grouped_points.permute(0, 3, 2, 1)  # [B, D, K, S]
             for j in range(len(self.conv_blocks[i])):
+                print('start')
                 conv = self.conv_blocks[i][j]
                 bn = self.bn_blocks[i][j]
-                grouped_points = F.relu(bn(conv(grouped_points)))
+                l1 = conv(grouped_points)
+                l2 = bn(l1)
+                grouped_points = F.relu(l2)
             new_points = torch.max(grouped_points, 2)[0]  # [B, D', S]
             new_points_list.append(new_points)
 
