@@ -55,7 +55,7 @@ if __name__ == '__main__':
 
     # Prepare DataLoader for train, test, validation
     base_path = r'G:\SpineDepth\groundtruth_labeled'  # Path to your dataset
-    num_points = 340000  # Number of points to sample
+    num_points = 100000  # Number of points to sample
 
     train_dataset = PointcloudDataset(base_path=base_path, split='train', num_points=num_points)
     test_dataset = PointcloudDataset(base_path=base_path, split='test', num_points=num_points)
