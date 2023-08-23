@@ -61,9 +61,9 @@ if __name__ == '__main__':
     test_dataset = PointcloudDataset(base_path=base_path, split='test', num_points=num_points)
     validation_dataset = PointcloudDataset(base_path=base_path, split='val', num_points=num_points)
 
-    train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
-    test_loader = DataLoader(test_dataset, batch_size=32)
-    validation_loader = DataLoader(validation_dataset, batch_size=32)
+    train_loader = DataLoader(train_dataset, batch_size=3, shuffle=True)
+    test_loader = DataLoader(test_dataset, batch_size=3)
+    validation_loader = DataLoader(validation_dataset, batch_size=3)
 
     # TensorBoard Writer
     writer = SummaryWriter()
