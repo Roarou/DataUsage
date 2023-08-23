@@ -383,10 +383,7 @@ class PointNetFeaturePropagation(nn.Module):
         new_points = new_points.permute(0, 2, 1)
         for i, conv in enumerate(self.mlp_convs):
             bn = self.mlp_bns[i]
-            print(i)
             layer1 = conv(new_points)
             layer2 = bn(layer1)
             new_points = F.relu(layer2)
-            print(f'temp shape : {new_points.shape}')
-        print(f'shape : {new_points.shape}')
         return new_points

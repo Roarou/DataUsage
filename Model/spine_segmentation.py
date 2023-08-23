@@ -35,7 +35,7 @@ class SpineSegmentationNet(nn.Module):
     def forward(self, point_cloud_xyz):
 
         # Set Abstraction layers
-        print(f'Input xyz shape: {point_cloud_xyz.shape}')
+        # print(f'Input xyz shape: {point_cloud_xyz.shape}')
         if self.include_normal_channels:  # If the normal_channel flag is True
             # Input layer
             input_points = point_cloud_xyz.permute(0, 2, 1)
@@ -44,12 +44,9 @@ class SpineSegmentationNet(nn.Module):
             # Input layer
             input_points = point_cloud_xyz.permute(0, 2, 1)
             input_xyz_coordinates = point_cloud_xyz.permute(0, 2, 1)
-        print('step 1')
         l1_xyz, l1_points = self.abstraction1(input_xyz_coordinates,
                                               input_points)  # Applying first set abstraction layer
-        print('step 2')
         l2_xyz, l2_points = self.abstraction2(l1_xyz, l1_points)  # Applying second set abstraction layer
-        print('step 3')
         l3_xyz, l3_points = self.abstraction3(l2_xyz, l2_points)  # Applying third set abstraction layer
 
         # Feature Propagation layers
@@ -57,7 +54,6 @@ class SpineSegmentationNet(nn.Module):
                                               l3_points)  # Applying first feature propagation layer
         l1_points = self.feature_propagation2(l1_xyz, l2_xyz, l1_points,
                                               l2_points)  # Applying second feature propagation layer
-        print('go')
         l0_points = self.feature_propagation1(input_xyz_coordinates, l1_xyz, input_points, l1_points)
 
 
