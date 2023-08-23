@@ -22,7 +22,8 @@ def index_points(points, idx):
     view_shape[1:] = [1] * (len(view_shape) - 1)
     repeat_shape = list(idx.shape)
     repeat_shape[0] = 1
-    batch_indices = torch.arange(B, dtype=torch.long).to(device).view(view_shape).repeat(repeat_shape)
+    batch_num = torch.arange(B, dtype=torch.long).to(device)
+    batch_indices = batch_num.view(view_shape).repeat(repeat_shape)
     new_points = points[batch_indices, idx, :]
     return new_points
 
@@ -97,14 +98,73 @@ def query_ball_point(radius, nsample, xyz, new_xyz):
     device = xyz.device
     B, N, C = xyz.shape
     _, S, _ = new_xyz.shape
+    # create a tensor of size of size BxSxN with values going from 0 to N-1
     group_idx = torch.arange(N, dtype=torch.long).to(device).view(1, 1, N).repeat([B, S, 1])
     sqrdists = square_distance(new_xyz, xyz)
+    # All the values outside the spheres are set to N
     group_idx[sqrdists > radius ** 2] = N
+    # Sort all the values ascending order and choose the n closest samples for each centroid
     group_idx = group_idx.sort(dim=-1)[0][:, :, :nsample]
+    # Make sure that all the values are within the desired radius
+    # Create a tensor filled with the closest value to each centroid
     group_first = group_idx[:, :, 0].view(B, S, 1).repeat([1, 1, nsample])
+    # Find all the values outside the radius: if any value is == N, then it means that it is outside the acceptable
+    # radius
     mask = group_idx == N
+    # Replace all the values outside the desirable radius by their closest neighbor to the centroid.
     group_idx[mask] = group_first[mask]
     return group_idx
+
+
+def sample_and_group(npoint, radius, nsample, xyz, points, returnfps=False):
+    """
+    Input:
+        npoint:
+        radius:
+        nsample:
+        xyz: input points position data, [B, N, 3]
+        points: input points data, [B, N, D]
+    Return:
+        new_xyz: sampled points position data, [B, npoint, nsample, 3]
+        new_points: sampled points data, [B, npoint, nsample, 3+D]
+    """
+    B, N, C = xyz.shape
+    S = npoint
+    fps_idx = farthest_point_sample(xyz, npoint)  # [B, npoint, C]
+    new_xyz = index_points(xyz, fps_idx)
+    idx = query_ball_point(radius, nsample, xyz, new_xyz)
+    grouped_xyz = index_points(xyz, idx)  # [B, npoint, nsample, C]
+    grouped_xyz_norm = grouped_xyz - new_xyz.view(B, S, 1, C)
+
+    if points is not None:
+        grouped_points = index_points(points, idx)
+        new_points = torch.cat([grouped_xyz_norm, grouped_points], dim=-1)  # [B, npoint, nsample, C+D]
+    else:
+        new_points = grouped_xyz_norm
+    if returnfps:
+        return new_xyz, new_points, grouped_xyz, fps_idx
+    else:
+        return new_xyz, new_points
+
+
+def sample_and_group_all(xyz, points):
+    """
+    Input:
+        xyz: input points position data, [B, N, 3]
+        points: input points data, [B, N, D]
+    Return:
+        new_xyz: sampled points position data, [B, 1, 3]
+        new_points: sampled points data, [B, 1, N, 3+D]
+    """
+    device = xyz.device
+    B, N, C = xyz.shape
+    new_xyz = torch.zeros(B, 1, C).to(device)
+    grouped_xyz = xyz.view(B, 1, N, C)
+    if points is not None:
+        new_points = torch.cat([grouped_xyz, points.view(B, 1, N, -1)], dim=-1)
+    else:
+        new_points = grouped_xyz
+    return new_xyz, new_points
 
 
 class PointNetSetAbstractionMsg(nn.Module):
@@ -150,25 +210,46 @@ class PointNetSetAbstractionMsg(nn.Module):
 
     def forward(self, xyz, points):
         """
-        Input:
-            xyz: input points position data, [B, C, N]
-            points: input points data, [B, D, N]
-        Return:
-            new_xyz: sampled points position data, [B, C, S]
-            new_points_concat: sample points feature data, [B, D', S]
-        """
+        B: Batch size. Represents the number of point clouds processed in a single batch. The batch size is a
+        commonly used hyperparameter in deep learning that controls the number of training samples to work through
+        before the model's internal parameters are updated.
 
+        N: Number of points. Refers to the total number of points
+        in each point cloud within the batch. Point clouds can be of varying complexity, and the number of points in
+        each cloud may be used to represent that complexity.
+
+        D: Number of input features (or channels) for the
+        point's data. In addition to the spatial coordinates of each point (usually 3D), there might be additional
+        features like color, intensity, or any other domain-specific attributes. This number represents the total
+        number of these attributes.
+
+        S: Number of samples
+
+        Input:
+        xyz: input points position data, [B, N, C]
+        points: input points data, [B, N, C]
+
+        Return:
+        new_xyz: sampled points position data, [B, C, S]
+        new_points_concat: sample points feature data, [B, D', S]
+        """
+        xyz = xyz.permute(0, 2, 1)
+        if points is not None:
+            points = points.permute(0, 2, 1)
 
         B, N, C = xyz.shape
         S = self.npoint
-        new_xyz = index_points(xyz, farthest_point_sample(xyz, S))
+        # Sampling
+        fps = farthest_point_sample(xyz, S)  # List of idx
+        new_xyz = index_points(xyz, fps)  # List of centroids' coordinates
         new_points_list = []
         for i, radius in enumerate(self.radius_list):
             K = self.nsample_list[i]
             print(i)
+            # Grouping
             group_idx = query_ball_point(radius, K, xyz, new_xyz)
-            grouped_xyz = index_points(xyz, group_idx)
-            grouped_xyz -= new_xyz.view(B, S, 1, C)
+            grouped_xyz = index_points(xyz, group_idx)  # Collects the coordinates of these grouped points.
+            grouped_xyz -= new_xyz.view(B, S, 1, C)  # Centers the grouped points around the centroids.
             if points is not None:
                 grouped_points = index_points(points, group_idx)
                 grouped_points = torch.cat([grouped_points, grouped_xyz], dim=-1)
@@ -189,6 +270,50 @@ class PointNetSetAbstractionMsg(nn.Module):
         new_xyz = new_xyz.permute(0, 2, 1)
         new_points_concat = torch.cat(new_points_list, dim=1)
         return new_xyz, new_points_concat
+
+
+class PointNetSetAbstraction(nn.Module):
+    def __init__(self, npoint, radius, nsample, in_channel, mlp, group_all):
+        super(PointNetSetAbstraction, self).__init__()
+        self.npoint = npoint
+        self.radius = radius
+        self.nsample = nsample
+        self.mlp_convs = nn.ModuleList()
+        self.mlp_bns = nn.ModuleList()
+        last_channel = in_channel
+        for out_channel in mlp:
+            self.mlp_convs.append(nn.Conv2d(last_channel, out_channel, 1))
+            self.mlp_bns.append(nn.BatchNorm2d(out_channel))
+            last_channel = out_channel
+        self.group_all = group_all
+
+    def forward(self, xyz, points):
+        """
+        Input:
+            xyz: input points position data, [B, C, N]
+            points: input points data, [B, D, N]
+        Return:
+            new_xyz: sampled points position data, [B, C, S]
+            new_points_concat: sample points feature data, [B, D', S]
+        """
+        xyz = xyz.permute(0, 2, 1)
+        if points is not None:
+            points = points.permute(0, 2, 1)
+
+        if self.group_all:
+            new_xyz, new_points = sample_and_group_all(xyz, points)
+        else:
+            new_xyz, new_points = sample_and_group(self.npoint, self.radius, self.nsample, xyz, points)
+        # new_xyz: sampled points position data, [B, npoint, C]
+        # new_points: sampled points data, [B, npoint, nsample, C+D]
+        new_points = new_points.permute(0, 3, 2, 1)  # [B, C+D, nsample,npoint]
+        for i, conv in enumerate(self.mlp_convs):
+            bn = self.mlp_bns[i]
+            new_points = F.relu(bn(conv(new_points)))
+
+        new_points = torch.max(new_points, 2)[0]
+        new_xyz = new_xyz.permute(0, 2, 1)
+        return new_xyz, new_points
 
 
 class PointNetFeaturePropagation(nn.Module):
