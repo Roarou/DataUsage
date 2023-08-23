@@ -1,6 +1,6 @@
 import torch
 import torch.optim as optim
-import torch.nn.functional as F
+import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
@@ -12,18 +12,19 @@ from Model.get_metrics import calculate_metrics
 def train(model, train_loader, optimizer, epoch, writer):
     model.train()
     total_loss = 0
+    criterion = nn.BCELoss()
     progress_bar = tqdm(train_loader, desc='Train Epoch: {}'.format(epoch))
     for batch_idx, (data, target) in enumerate(progress_bar):
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
         output, _ = model(data)
-        loss = F.binary_cross_entropy(output, target)
+        binary_predictions = (output >= 0.5).float()
+        loss = criterion(output, target)
         loss.backward()
         optimizer.step()
         total_loss += loss.item()
-        binary_predictions = (output >= 0.5).float()
         progress_bar.set_postfix({'loss': total_loss / (batch_idx + 1)})
-        metrics = calculate_metrics(binary_predictions, output)
+        metrics = calculate_metrics(binary_predictions, target)
 
         writer.add_scalar('Training loss', total_loss / (batch_idx + 1), epoch)
         writer.add_scalar('Accuracy', metrics['accuracy'], epoch)
@@ -35,11 +36,12 @@ def train(model, train_loader, optimizer, epoch, writer):
 def test(model, test_loader, epoch, writer, mode='Test'):
     model.eval()
     total_loss = 0
+    criterion = nn.BCELoss()
     with torch.no_grad():
         for data, target in test_loader:
             data, target = data.to(device), target.to(device)
             output, _ = model(data)
-            loss = F.binary_cross_entropy(output, target)
+            loss = criterion(output, target)
             total_loss += loss.item()
     loss = total_loss / len(test_loader)
     print(f'{mode} Loss: {loss}')
