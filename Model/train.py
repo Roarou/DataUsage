@@ -27,9 +27,10 @@ def train(model, train_loader, optimizer, epoch, writer):
         metrics = calculate_metrics(binary_predictions, target)
 
         writer.add_scalar('Training loss', total_loss / (batch_idx + 1), epoch)
-        writer.add_scalar('Accuracy', metrics['accuracy'], epoch)
-        writer.add_scalar('Precision', metrics['precision'], epoch)
-        writer.add_scalar('Recall', metrics['recall'], epoch)
+        writer.add_scalar('F1', metrics['F1'], epoch)
+        writer.add_scalar('IoU', metrics['IoU'], epoch)
+        writer.add_scalar('Precision', metrics['Precision'], epoch)
+        writer.add_scalar('Recall', metrics['Recall'], epoch)
     writer.add_scalar('train_loss', total_loss / len(train_loader), epoch)
 
 

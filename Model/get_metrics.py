@@ -92,10 +92,10 @@ def calculate_metrics(pred, target):
 
     # Put metrics in dictionary
     metrics = {
-        'IoU': iou.item(),
-        'F1': f1.item(),
-        'Precision': precision.item(),
-        'Recall': recall.item()
+        'IoU': iou,
+        'F1': f1,
+        'Precision': precision,
+        'Recall': recall
     }
 
     return metrics

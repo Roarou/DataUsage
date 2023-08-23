@@ -245,7 +245,6 @@ class PointNetSetAbstractionMsg(nn.Module):
         new_points_list = []
         for i, radius in enumerate(self.radius_list):
             K = self.nsample_list[i]
-            print(i)
             # Grouping
             group_idx = query_ball_point(radius, K, xyz, new_xyz)
             grouped_xyz = index_points(xyz, group_idx)  # Collects the coordinates of these grouped points.
@@ -258,7 +257,6 @@ class PointNetSetAbstractionMsg(nn.Module):
 
             grouped_points = grouped_points.permute(0, 3, 2, 1)  # [B, D, K, S]
             for j in range(len(self.conv_blocks[i])):
-                print('start')
                 conv = self.conv_blocks[i][j]
                 bn = self.bn_blocks[i][j]
                 l1 = conv(grouped_points)
@@ -309,7 +307,9 @@ class PointNetSetAbstraction(nn.Module):
         new_points = new_points.permute(0, 3, 2, 1)  # [B, C+D, nsample,npoint]
         for i, conv in enumerate(self.mlp_convs):
             bn = self.mlp_bns[i]
-            new_points = F.relu(bn(conv(new_points)))
+            layer1 = conv(new_points)
+            layer2 = bn(layer1)
+            new_points = F.relu(layer2)
 
         new_points = torch.max(new_points, 2)[0]
         new_xyz = new_xyz.permute(0, 2, 1)
@@ -383,5 +383,10 @@ class PointNetFeaturePropagation(nn.Module):
         new_points = new_points.permute(0, 2, 1)
         for i, conv in enumerate(self.mlp_convs):
             bn = self.mlp_bns[i]
-            new_points = F.relu(bn(conv(new_points)))
+            print(i)
+            layer1 = conv(new_points)
+            layer2 = bn(layer1)
+            new_points = F.relu(layer2)
+            print(f'temp shape : {new_points.shape}')
+        print(f'shape : {new_points.shape}')
         return new_points

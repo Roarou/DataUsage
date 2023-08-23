@@ -23,7 +23,7 @@ class SpineSegmentationNet(nn.Module):
                                                                mlp=[256, 256])
         self.feature_propagation2 = PointNetFeaturePropagation(in_channel=576,
                                                                mlp=[256, 128])
-        self.feature_propagation1 = PointNetFeaturePropagation(in_channel=150 + extra_channels,
+        self.feature_propagation1 = PointNetFeaturePropagation(in_channel=131 + extra_channels,
                                                                mlp=[128, 128])
         self.conv_layer1 = nn.Conv1d(128, 128, 1)
         self.batch_norm1 = nn.BatchNorm1d(128)
@@ -57,13 +57,17 @@ class SpineSegmentationNet(nn.Module):
                                               l3_points)  # Applying first feature propagation layer
         l1_points = self.feature_propagation2(l1_xyz, l2_xyz, l1_points,
                                               l2_points)  # Applying second feature propagation layer
+        print('go')
         l0_points = self.feature_propagation1(input_xyz_coordinates, l1_xyz, input_points, l1_points)
 
+
+        feat1 = self.conv_layer1(l0_points)
+        feat1 = self.batch_norm1(feat1)
         # FC layers
-        feat = F.relu(self.bn1(self.conv1(l0_points)))
-        x = self.drop1(feat)
-        x = self.conv2(x)  # Ensure that conv2 has 1 output channel for binary classification
+        feat = F.relu(feat1)
+        x = self.dropout1(feat)
+        x = self.conv_layer2(x)  # Ensure that conv2 has 1 output channel for binary classification
         x = torch.sigmoid(x)  # Applying sigmoid activation for binary classification
         x = x.permute(0, 2, 1)
 
-        return x, l3_points
+        return x.squeeze(-1), l3_points
