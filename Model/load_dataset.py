@@ -27,7 +27,7 @@ def normalize_point_cloud(points):
 
 
 class PointcloudDataset(Dataset):
-    def __init__(self, base_path=r'G:\SpineDepth\groundtruth_labeled', split='train', test_size=0.1, val_size=0.1,
+    def __init__(self, base_path=r'G:\SpineDepth\groundtruth_labeled', split='train', test_size=0.2, val_size=0.2,
                  random_state=42, num_points=340000):
         """
         Custom dataset class for loading and managing point cloud data.
