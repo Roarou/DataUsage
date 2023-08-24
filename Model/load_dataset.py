@@ -27,7 +27,9 @@ def normalize_point_cloud(points):
 
 
 class PointcloudDataset(Dataset):
-    def __init__(self, base_path=r'G:\SpineDepth\groundtruth_labeled', split='train', test_size=0.2, val_size=0.2,
+    def __init__(self, base_path=r'G:\SpineDepth\groundtruth_labeled', test_validation_path=r'G:\SpineDepth'
+                                                                                            r'\groundtruth_labeled',
+                 split='train', test_size=0.2, val_size=0.2,
                  random_state=42, num_points=340000):
         """
         Custom dataset class for loading and managing point cloud data.
@@ -41,12 +43,14 @@ class PointcloudDataset(Dataset):
         """
         self.root_dir = base_path
         self.file_list = os.listdir(self.root_dir)
+        self.file_test_val = os.listdir(test_validation_path)
         self.target_num_points = num_points
 
         # Split the dataset into train, validation, and test sets
-        train_dirs, test_dirs = train_test_split(self.file_list, test_size=test_size, random_state=random_state)
-        train_dirs, val_dirs = train_test_split(train_dirs, test_size=val_size, random_state=random_state)
-
+        # train_dirs, test_dirs = train_test_split(self.file_list, test_size=test_size, random_state=random_state)
+        # train_dirs, val_dirs = train_test_split(train_dirs, test_size=val_size, random_state=random_state)
+        train_dirs = self.file_list
+        test_dirs, val_dirs = train_test_split(self.file_test_val, test_size=val_size, random_state=random_state)
         if split == 'train':
             self.specimen_dirs = train_dirs
         elif split == 'val':
