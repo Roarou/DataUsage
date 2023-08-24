@@ -19,7 +19,7 @@ The main objectives of this project include:
 ### Prerequisites
 
 - Python 3.8 or higher
-- TensorFlow 2.x
+- Torch 
 - ROS2 (for the publisher integration)
 - Other necessary libraries mentioned in `requirements.txt`
 
@@ -28,3 +28,69 @@ The main objectives of this project include:
 1. Clone the repository
    ```bash
    git clone https://github.com/Roarou/DataUsage
+
+2. Navigate to the directory
+   ```bash
+   cd spinal-surgery-precision
+
+3. Install the required packages
+   ```bash
+   pip install -r requirements.txt
+
+
+## Usage
+
+Provide instructions on how to run the code, train models, perform experiments, etc.
+
+## Experimental Setup
+
+Details about the experimental setup, including camera calibration and optical tracking system integration.
+
+## Results
+
+Discuss the results, including accuracy and precision improvements in pedicle screw placement.
+
+## Contributing
+
+Provide guidelines for those who wish to contribute to the project.
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE.md file for details.
+
+## Acknowledgments
+
+Thank the people who contributed to the project, including supervisors, colleagues, and any funding agencies.
+
+## Contact
+
+For any questions or inquiries, please contact [Ghazi Cherif] at [gcherif@student.ethz.ch].
+
+## Authors
+
+- [Ghazi Cherif](https://github.com/Roarou) - Main Developer and Researcher
+
+## Publications
+
+No publication yet.
+
+## Support and Sponsorship
+
+Acknowledgment of support, sponsorship, or funding bodies.
+
+## Future Work
+
+Discussion of potential future improvements or extensions of this project.
+
+## Citing This Work
+
+If you wish to cite this project in your own research, please include the following BibTeX entry:
+
+```bibtex
+@misc{ghasicherif2023spinalsurgery,
+  title={Improving Robotic Spinal Surgery Precision and Safety with Advanced Imaging Techniques},
+  author={Ghazi Cherif},
+  year={2023},
+  publisher={GitHub},
+  howpublished={\url{git clone https://github.com/Roarou/DataUsage}},
+}
