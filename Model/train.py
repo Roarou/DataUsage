@@ -9,7 +9,10 @@ from Model.load_dataset import PointcloudDataset  # Replace with the proper file
 from Model.get_metrics import calculate_metrics
 
 batch = 24
-
+max_epochs = 50  # You can set the maximum number of epochs as per your requirement
+patience = 2
+wait = 0
+best_val_loss = float('inf')
 
 def train(model, train_loader, optimizer, epoch, writer):
     model.train()
@@ -76,17 +79,24 @@ if __name__ == '__main__':
     writer = SummaryWriter(log_dir='logs')
 
     best_test_loss = float('inf')
-    for epoch in range(5):
+    for epoch in range(max_epochs):
         epoch = epoch + 1
         train(model, train_loader, optimizer, epoch, writer)
         validation_loss = test(model, validation_loader, epoch, writer, mode='Validation')
         # Save model
-        if validation_loss < best_test_loss:
-            best_test_loss = validation_loss
-            print(f'New best loss: {best_test_loss}')
-        torch.save(model.state_dict(), f'lr_0,0001_all_data\model_dic_epoch_{epoch}.pt')
-        torch.save(model, f'lr_0,0001_all_data\model_1_epoch_{epoch}.pth')
-
+        if validation_loss < best_val_loss:
+            best_val_loss = validation_loss
+            best_model_weights = torch.save(model.state_dict(), f'lr_0,0001_all_data\model_dic_epoch_{epoch}.pt')
+            print(f'New best loss: {best_val_loss}')
+            torch.save(model, f'lr_0,0001_all_data\model_1_epoch_{epoch}.pth')
+            wait = 0  # Reset the waiting counter if there is an improvement
+        else:
+            wait += 1
+            if wait >= patience:
+                print("Early stopping")
+                break
+    # reload the best model here before testing if you want to use the best weights
+    model.load_state_dict(best_model_weights)
     test_loss = test(model, test_loader, epoch, writer)
     print(f'Test loss: {test_loss}')
     writer.close()
