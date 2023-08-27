@@ -15,7 +15,7 @@ colors = [
 
 
 class PoseTransformation:
-    def __init__(self, frame, specimen):
+    def __init__(self, frame, specimen, file0, file1):
         """
         Initializes the PoseTransformation class.
 
@@ -31,7 +31,10 @@ class PoseTransformation:
         self.geometries = []
         self.specimen = specimen
         self.frame = frame
-    def read_point_cloud(self, file1, file2):
+        self.file0 = file0
+        self.file1 = file1
+
+    def read_point_cloud(self):
         """
         Reads point cloud data from files and applies uniform downsampling.
 
@@ -40,10 +43,10 @@ class PoseTransformation:
         file2 (str): The second point cloud data file.
         downsampling_factor (int): The downsampling factor to apply to the point clouds.
         """
-        self.pcd1 = o3d.io.read_point_cloud(file1)
-        self.pcd2 = o3d.io.read_point_cloud(file2)
+        self.pcd1 = o3d.io.read_point_cloud(self.file0)
+        self.pcd2 = o3d.io.read_point_cloud(self.file1)
 
-    def visualize_displacement(self, poses_0_file_path, poses_1_file_path):
+    def visualize_displacement(self):
         """
         Visualizes the displacement between two poses.
 
@@ -54,6 +57,8 @@ class PoseTransformation:
         Returns:
         TF_1, TF_2: Transformation matrices for the first and second set of poses.
         """
+        poses_0_file_path = os.path.join(os.path.dirname(self.file0), 'Poses_0.txt')
+        poses_1_file_path = os.path.join(os.path.dirname(self.file1), 'Poses_1.txt')
         vertebrae, TF_1 = visualize_displacements(poses_0_file_path, self.frame, self.specimen)
         _, TF_2 = visualize_displacements(poses_1_file_path)
         TF_1 = TF_1[0]
@@ -116,4 +121,3 @@ class PoseTransformation:
             os.remove(file_path)
         self.combined_pcd = point_cloud1 + point_cloud2
         o3d.io.write_point_cloud(file_path, self.combined_pcd)
-

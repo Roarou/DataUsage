@@ -3,6 +3,7 @@ import os
 from DataProcessing.Pointcloud.pointcloud_cleaning import clean
 from multiprocessing import Pool, cpu_count, TimeoutError
 
+
 def process_point_cloud(args):
     """
     Process the point cloud data for a single frame.
@@ -14,21 +15,21 @@ def process_point_cloud(args):
     Returns:
         None
     """
-    file1, file2, poses_0_file_path, poses_1_file_path, i, frame, subdirectory_path = args
+
+    file1, file2, spec, frame, subdirectory_path = args
 
     # Process the point cloud data in the two files.
     clean(file1, show_clusters=False)  # Clean the first file.
     clean(file2, show_clusters=False)  # Clean the second file.
 
     # Process the point cloud data in the two files.
-    pose_transformer = PoseTransformation(specimen=i, frame=frame)
-    pose_transformer.clean_point_clouds(file1, file2)
+    pose_transformer = PoseTransformation(specimen=spec, frame=frame, file0=file1, file1=file2)
 
     # Visualize and get the transformation between the poses in the two pose files.
-    TF_1, TF_2 = pose_transformer.visualize_displacement(poses_0_file_path, poses_1_file_path)
+    TF_1, TF_2 = pose_transformer.visualize_displacement()
 
     # Load and downsample the point cloud data from the two files.
-    pose_transformer.read_point_cloud(file1, file2)
+    pose_transformer.read_point_cloud()
 
     # Apply the transformation to the point cloud data.
     pose_transformer.apply_transformation(TF_1, TF_2)
@@ -50,6 +51,7 @@ def process_point_cloud(args):
 
     # Visualize the final combined and cleaned point cloud data.
     pose_transformer.visualize(path_f)
+
 
 def main():
     """
@@ -131,6 +133,7 @@ def main():
 
                     pool.close()
                     pool.join()
+
 
 if __name__ == "__main__":
     main()
