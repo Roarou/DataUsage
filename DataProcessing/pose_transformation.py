@@ -59,8 +59,8 @@ class PoseTransformation:
         """
         poses_0_file_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(self.file0))), 'Poses_0.txt')
         poses_1_file_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(self.file1))), 'Poses_1.txt')
-        vertebrae, TF_1 = visualize_displacements(poses_0_file_path, self.frame, self.specimen)
-        _, TF_2 = visualize_displacements(poses_1_file_path, self.frame, self.specimen)
+        _, TF_1 = visualize_displacements(poses_0_file_path, self.frame, self.specimen)
+        vertebrae, TF_2 = visualize_displacements(poses_1_file_path, self.frame, self.specimen)
         TF_1 = TF_1[self.frame*5]
         TF_2 = TF_2[self.frame*5]
         print(TF_2, TF_1)
@@ -78,8 +78,8 @@ class PoseTransformation:
         Args:
         TF_1, TF_2: Transformation matrices for the first and second set of poses.
         """
-        self.pcd2 = self.pcd2.transform(np.linalg.inv(TF_2))
-        self.pcd2 = self.pcd2.transform(TF_1)
+        self.pcd2 = self.pcd2.transform(np.linalg.inv(TF_1))
+        self.pcd2 = self.pcd2.transform(TF_2)
         o3d.visualization.draw_geometries([self.pcd1, self.pcd2])
         bounding_box2 = self.pcd1.get_oriented_bounding_box()
         bounding_box2.color = colors[6]
