@@ -57,12 +57,13 @@ class PoseTransformation:
         Returns:
         TF_1, TF_2: Transformation matrices for the first and second set of poses.
         """
-        poses_0_file_path = os.path.join(os.path.dirname(self.file0), 'Poses_0.txt')
-        poses_1_file_path = os.path.join(os.path.dirname(self.file1), 'Poses_1.txt')
+        poses_0_file_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(self.file0))), 'Poses_0.txt')
+        poses_1_file_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(self.file1))), 'Poses_1.txt')
         vertebrae, TF_1 = visualize_displacements(poses_0_file_path, self.frame, self.specimen)
-        _, TF_2 = visualize_displacements(poses_1_file_path)
-        TF_1 = TF_1[0]
-        TF_2 = TF_2[0]
+        _, TF_2 = visualize_displacements(poses_1_file_path, self.frame, self.specimen)
+        TF_1 = TF_1[self.frame*5]
+        TF_2 = TF_2[self.frame*5]
+        print(TF_2, TF_1)
         for i, vertebra in enumerate(vertebrae):
             bounding_box = vertebra.get_oriented_bounding_box()
             bounding_box.color = colors[i]
@@ -79,7 +80,7 @@ class PoseTransformation:
         """
         self.pcd2 = self.pcd2.transform(np.linalg.inv(TF_2))
         self.pcd2 = self.pcd2.transform(TF_1)
-
+        o3d.visualization.draw_geometries([self.pcd1, self.pcd2])
         bounding_box2 = self.pcd1.get_oriented_bounding_box()
         bounding_box2.color = colors[6]
 
@@ -93,7 +94,7 @@ class PoseTransformation:
         reg_p2p = o3d.pipelines.registration.registration_icp(
             self.pcd2, self.pcd1, self.threshold, self.current_transformation,
             o3d.pipelines.registration.TransformationEstimationPointToPoint(),
-            o3d.pipelines.registration.ICPConvergenceCriteria(max_iteration=20000))
+            o3d.pipelines.registration.ICPConvergenceCriteria(max_iteration=100000))
         self.pcd2.transform(reg_p2p.transformation)
         return reg_p2p
 

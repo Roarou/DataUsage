@@ -19,11 +19,11 @@ def process_point_cloud(args):
     file1, file2, spec, frame, subdirectory_path = args
 
     # Process the point cloud data in the two files.
-    clean(file1, show_clusters=False)  # Clean the first file.
-    clean(file2, show_clusters=False)  # Clean the second file.
+    # clean(file1, show_clusters=False)  # Clean the first file.
+    # clean(file2, show_clusters=False)  # Clean the second file.
 
     # Process the point cloud data in the two files.
-    pose_transformer = PoseTransformation(specimen=spec, frame=frame, file0=file1, file1=file2)
+    pose_transformer = PoseTransformation(specimen=spec, frame=frame, file0=file2, file1=file1)
 
     # Visualize and get the transformation between the poses in the two pose files.
     TF_1, TF_2 = pose_transformer.visualize_displacement()
@@ -46,8 +46,6 @@ def process_point_cloud(args):
     path_f = os.path.join(pointcloud_directory, f"F_PCD_{frame}.pcd")  # Create a filename for the future combined
     # point cloud data file.
     pose_transformer.save_point_clouds_together(path_f, pose_transformer.pcd1, pose_transformer.pcd2)
-    pose_transformer.clean_combined_point_cloud(path_f, factor=5, rad=2, show_clusters=False,
-                                                reconstruction=True)
 
     # Visualize the final combined and cleaned point cloud data.
     pose_transformer.visualize(path_f)
