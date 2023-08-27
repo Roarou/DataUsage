@@ -24,8 +24,11 @@ class PointCloudProcessor:
         self.idx = idx
         self.file_path = file_path
         self.GT = o3d.io.read_point_cloud(file_path)
-        self.pcd = self.GT.select_by_index(idx)
         self.indice = []
+        if idx is not None:
+            self.pcd = self.GT.select_by_index(idx)
+        else:
+            self.pcd = self.GT
     @staticmethod
     def load_point_cloud(file_path: str, downsampling_factor=2):
         """
@@ -228,7 +231,7 @@ class PointCloudProcessor:
         self.pcd.colors = o3d.utility.Vector3dVector(np.array(interpolated_colors))  # Update the colors
 
 
-def clean(file_path, idx, show_clusters=False, factor=8, rad=5, reconstruction=False, noisy_data=False):
+def clean(file_path, idx=None, show_clusters=False, factor=8, rad=5, reconstruction=False, noisy_data=False):
     # Create an instance of the PointCloudProcessor
     pc_processor = PointCloudProcessor(file_path, idx)
     if noisy_data:
