@@ -64,7 +64,7 @@ if __name__ == '__main__':
     optimizer = optim.Adam(model.parameters(), lr=0.0001)
 
     # Prepare DataLoader for train, test, validation
-    base_path = r'G:\SpineDepth\groundtruth_labeled'  # Path to your dataset
+    base_path = r'L:\groundtruth_labeled' # Path to your dataset
     num_points = 20000  # Number of points to sample
 
     train_dataset = PointcloudDataset(base_path=base_path, split='train', num_points=num_points)

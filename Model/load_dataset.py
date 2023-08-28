@@ -27,8 +27,7 @@ def normalize_point_cloud(points):
 
 
 class PointcloudDataset(Dataset):
-    def __init__(self, base_path=r'G:\SpineDepth\groundtruth_labeled', test_validation_path=r'G:\SpineDepth'
-                                                                                            r'\groundtruth',
+    def __init__(self, base_path=r'L:\groundtruth_labeled', test_validation_path=r'L:\groundtruth',
                  split='train', test_size=0.2, val_size=0.2,
                  random_state=42, num_points=340000):
         """
