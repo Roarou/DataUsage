@@ -7,14 +7,14 @@ import torch
 from tqdm import tqdm
 
 
-def normalize_point_cloud(points):
+def normalize_point_cloud(points, filepath):
     if np.any(np.isnan(points)):
-        raise ValueError("Input data contains NaN values.")
+        raise ValueError(f"Input data contains NaN values. Reading: {filepath}")
 
     centroid = np.mean(points, axis=0)
 
     if np.any(np.isnan(centroid)):
-        raise ValueError("Centroid calculation resulted in NaN values.")
+        raise ValueError(f"Centroid calculation resulted in NaN values. Reading: {filepath}")
 
     points -= centroid  # center
     furthest_distance = np.max(np.sqrt(np.sum(points ** 2, axis=-1)))
@@ -89,7 +89,7 @@ class PointcloudDataset(Dataset):
             input = input[sampled_indices]
             labeled_pcd = labeled_pcd[sampled_indices]
 
-        normalized_input = normalize_point_cloud(input)
+        normalized_input = normalize_point_cloud(input, file_path)
         binary_labels = (labeled_pcd >= 0.5).astype(np.float32)
 
         input_data = torch.tensor(normalized_input, dtype=torch.float32)
