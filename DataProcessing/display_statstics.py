@@ -2,11 +2,12 @@ from DataProcessing.Extraction.extract_tf_matrix_groundtruth import extract_tran
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+import scipy.spatial.transform as sst
 
 file_paths = []  # List of file paths
 plt.close('all')
 
-for j in range(2, 6):
+for j in range(2, 11):
     # Define the specimen name and base directory for recordings
     spec = f'Specimen_{j}'
     base_directory = f'G:\SpineDepth\{spec}\Recordings'
@@ -27,41 +28,45 @@ for j in range(2, 6):
 
 files_data = []
 vertebra_stats = []
-
+list_variables = ['phi', 'theta', 'psi', 'x', 'y', 'z']
 # Step 1: Load Transformation Data
 for file_path in file_paths:
     transformation_matrices = extract_transformation_matrices(file_path)
     file_data = []
     for tf_matrix in transformation_matrices:
-        rotation_values = tf_matrix[:3, :3].flatten()
+        r = sst.Rotation.from_matrix(tf_matrix[:3, :3])
+        angles = r.as_euler('zyx', degrees=True)
         translation_values = tf_matrix[:3, 3]
-        transformation_values = np.concatenate((rotation_values, translation_values))
+        transformation_values = np.concatenate((angles, translation_values))
         file_data.append(transformation_values)
     print(f'Processed {file_path}')
     files_data.append(file_data)
 
 # Step 2: Calculate Statistics
 for file_data in files_data:
-    file_stats = [{'rotation_mean': 0, 'rotation_std': 0, 'translation_mean': 0, 'translation_std': 0} for _ in range(5)]
+    file_stats = [{'phi_mean': 0, 'phi_std': 0, 'theta_mean': 0, 'theta_std': 0, 'psi_mean': 0, 'psi_std': 0,
+                    'x_mean': 0, 'x_std': 0, 'y_mean': 0, 'y_std': 0, 'z_mean': 0, 'z_std': 0} for _ in range(5)]
 
     for frame_index in range(0, len(file_data), 5):
         frame = file_data[frame_index:frame_index + 5]
 
         for vertebra_index, transformation in enumerate(frame):
-            rotation_values = transformation[:9]
-            translation_values = transformation[9:]
-            translation_norm = np.linalg.norm(translation_values)
-            file_stats[vertebra_index]['translation_mean'] += translation_norm
-            file_stats[vertebra_index]['rotation_mean'] += np.mean(rotation_values)
-            file_stats[vertebra_index]['rotation_std'] += np.std(rotation_values)
-            file_stats[vertebra_index]['translation_std'] += np.std(translation_values)
+            phi_values = transformation[0]
+            theta_values = transformation[1]
+            psi_values = transformation[2]
+            x_values = transformation[3]
+            y_values = transformation[4]
+            z_values = transformation[5]
+
+            for key, value in zip(list_variables, transformation):
+                file_stats[vertebra_index][f'{key}_mean']+=value
 
     total_frames_in_file = len(file_data) // 5
+
     for vertebra_stat in file_stats:
-        vertebra_stat['rotation_mean'] /= total_frames_in_file
-        vertebra_stat['rotation_std'] /= total_frames_in_file
-        vertebra_stat['translation_mean'] /= total_frames_in_file
-        vertebra_stat['translation_std'] /= total_frames_in_file
+        for key in list_variables:
+            vertebra_stat[f'{key}_mean'] = vertebra_stat[f'{key}_mean']/total_frames_in_file
+            vertebra_stat[f'{key}_std'] = np.std(vertebra_stat[f'{key}_mean'])
 
     vertebra_stats.append(file_stats)
 
@@ -73,15 +78,17 @@ for j, file_stats in enumerate(vertebra_stats):
         specimen_stats[spec_num] = [file_stat.copy() for file_stat in file_stats]
     else:
         for vertebra_stat, accumulated_stat in zip(file_stats, specimen_stats[spec_num]):
-            accumulated_stat['rotation_mean'] += vertebra_stat['rotation_mean']
-            accumulated_stat['translation_mean'] += vertebra_stat['translation_mean']
+            for key in list_variables:
+                accumulated_stat[f'{key}_std'] += vertebra_stat[f'{key}_std']
 
 # Divide by the total number of files for each specimen to get the mean
 total_files_per_specimen = 40  # Assuming 40 recordings per specimen
 for spec_stats in specimen_stats.values():
     for vertebra_stat in spec_stats:
-        vertebra_stat['rotation_mean'] /= total_files_per_specimen
-        vertebra_stat['translation_mean'] /= total_files_per_specimen
+        for key in list_variables:
+            vertebra_stat[f'{key}_std'] /= total_files_per_specimen
+
+
 # Step 3: Plot the Statistics (Box Plots and Scatter Plots)
 def plot_statistics(stats, title, y_label, stat_type):
     plt.figure()  # Create a new figure
@@ -105,12 +112,15 @@ def plot_statistics(stats, title, y_label, stat_type):
         plt.ylabel(y_label)
         plt.show()
 
-rotation_means = [[stats['rotation_mean'] for stats in file_stats] for file_stats in vertebra_stats]
-translation_means = [[stats['translation_mean'] for stats in file_stats] for file_stats in vertebra_stats]
 
-plot_statistics(vertebra_stats, 'Mean Rotation by Vertebra', 'Rotation Value', 'rotation_mean')
-plot_statistics(vertebra_stats, 'Mean Translation by Vertebra', 'Translation Value', 'translation_mean')
-# Step 4: Plot the 'Number of specimen' Box Plot for each Specimen on the same figure
+phi_means = [[stats['phi_mean'] for stats in file_stats] for file_stats in vertebra_stats]
+theta_means = [[stats['theta_mean'] for stats in file_stats] for file_stats in vertebra_stats]
+psi_means = [[stats['psi_mean'] for stats in file_stats] for file_stats in vertebra_stats]
+x_means = [[stats['x_mean'] for stats in file_stats] for file_stats in vertebra_stats]
+y_means = [[stats['y_mean'] for stats in file_stats] for file_stats in vertebra_stats]
+z_means = [[stats['z_mean'] for stats in file_stats] for file_stats in vertebra_stats]
+
+
 def plot_specimen_statistics(stats, title, y_label, stat_type_mean, stat_type_std):
     specimens = sorted(list(stats.keys()))
     data_means = []
@@ -118,18 +128,26 @@ def plot_specimen_statistics(stats, title, y_label, stat_type_mean, stat_type_st
     for specimen in specimens:
         specimen_data_mean = [vertebra_stats[stat_type_mean] for vertebra_stats in stats[specimen]]
         specimen_data_std = [vertebra_stats[stat_type_std] for vertebra_stats in stats[specimen]]
-        data_means.append(specimen_data_mean) # Taking means across all vertebrae
-        data_stds.append(specimen_data_std) # Taking standard deviations across all vertebrae
+        data_means.append(specimen_data_mean)  # Taking means across all vertebrae
+        data_stds.append(specimen_data_std)  # Taking standard deviations across all vertebrae
 
-    plt.boxplot(data_means) # Box plot for the means
+    plt.boxplot(data_means)  # Box plot for the means
     for i, (mean, std) in enumerate(zip(data_means, data_stds)):
-        plt.errorbar(i + 1, np.mean(mean), yerr=np.mean(std), fmt='o', color='red') # Plot mean of standard deviations with error bars
+        plt.errorbar(i + 1, np.mean(mean), yerr=np.mean(std), fmt='o',
+                     color='red')  # Plot mean of standard deviations with error bars
 
     plt.title(f'{title} across Specimens')
     plt.ylabel(y_label)
     plt.xlabel('Specimen Number')
-    plt.xticks(range(1, len(specimens) + 1), [f'Specimen {spec}' for spec in specimens])
+    plt.xticks(range(1, len(specimens) + 1), [f'Spec {spec}' for spec in specimens])
+    plt.savefig(f'{title}_across_Specimens.png')  # Save the plot
     plt.show()
 
-plot_specimen_statistics(specimen_stats, 'Mean Rotation', 'Rotation Value', 'rotation_mean', 'rotation_std')
-plot_specimen_statistics(specimen_stats, 'Mean Translation', 'Translation Value', 'translation_mean', 'translation_std')
+
+plot_specimen_statistics(specimen_stats, 'Mean Phi', 'Rotation Value', 'phi_mean', 'phi_std')
+plot_specimen_statistics(specimen_stats, 'Mean Theta', 'Rotation Value', 'theta_mean', 'theta_std')
+plot_specimen_statistics(specimen_stats, 'Mean Psi', 'Rotation Value', 'psi_mean', 'psi_std')
+
+plot_specimen_statistics(specimen_stats, 'Mean X', 'Translation Value', 'x_mean', 'x_std')
+plot_specimen_statistics(specimen_stats, 'Mean Y', 'Translation Value', 'y_mean', 'y_std')
+plot_specimen_statistics(specimen_stats, 'Mean Z', 'Translation Value', 'z_mean', 'z_std')
