@@ -7,7 +7,7 @@ import torch
 from tqdm import tqdm
 
 
-def normalize_point_cloud(points, filepath):
+def normalize_point_cloud(points, filepath=None):
     if np.any(np.isnan(points)):
         raise ValueError(f"Input data contains NaN values. Reading: {filepath}")
 
