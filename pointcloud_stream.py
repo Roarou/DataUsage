@@ -3,6 +3,30 @@ import numpy as np
 import open3d as o3d
 import sys
 
+
+def get_np_array(array):
+    return np.asarray(array)
+
+
+def from_np_to_pcd(points, colors):
+    pcd_modified = o3d.geometry.PointCloud()
+    pcd_modified.points = o3d.utility.Vector3dVector(points)
+    pcd_modified.colors = o3d.utility.Vector3dVector(colors)
+    return pcd_modified
+
+
+def get_o3d_pcd(point_cloud):
+    points = get_np_array(point_cloud.get_data())
+    mask = ~np.isnan(points).any(axis=2)
+    filtered_points = points[mask]
+    xyz = filtered_points[:, :3].astype(np.float32)
+
+    rgb = np.frombuffer(np.float32(filtered_points[:, 3]).tobytes(), np.uint8).reshape(-1, 4)[:, :3] / 255.0
+
+    pcd = from_np_to_pcd(xyz, rgb)
+    return pcd
+
+
 def main():
     # Initialize ZED camera
     init_params = sl.InitParameters()
@@ -19,8 +43,6 @@ def main():
     # Initialize Open3D visualization
     vis = o3d.visualization.Visualizer()
     vis.create_window("Point Cloud", 1280, 720)
-
-    pcd = o3d.geometry.PointCloud()
 
     # Set runtime parameters for live camera feed
     runtime_params = sl.RuntimeParameters()
@@ -40,15 +62,7 @@ def main():
                 cam.retrieve_measure(point_cloud_mat, sl.MEASURE.XYZRGBA)
 
                 # Convert ZED point cloud to Open3D format
-                xyzrgba = point_cloud_mat.get_data()
-                xyz = xyzrgba[:, :, :3].reshape((-1, 3))
-                rgb = xyzrgba[:, :, 3]
-                colors = ((rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, (rgb) & 0xFF)
-                colors = np.asarray(colors).T.reshape((-1, 3)) / 255.0
-
-                # Update Open3D point cloud data
-                pcd.points = o3d.utility.Vector3dVector(xyz)
-                pcd.colors = o3d.utility.Vector3dVector(colors)
+                pcd = get_o3d_pcd(point_cloud_mat)
 
                 # Update visualization
                 vis.update_geometry(pcd)
