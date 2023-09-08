@@ -41,3 +41,34 @@ o3d.visualization.draw_geometries([source, template])
 print("Estimated transformation is:")
 print(reg_p2p.transformation)
 
+# Convert the point clouds to NumPy arrays and add a batch dimension
+source_np = np.asarray(source.points)
+source_np = np.expand_dims(source_np, axis=0)
+
+template_np = np.asarray(template.points)
+template_np = np.expand_dims(template_np, axis=0)
+
+# Convert NumPy arrays to torch Tensors
+source_tensor = torch.tensor(source_np, dtype=torch.float32)
+
+template_tensor = torch.tensor(template_np, dtype=torch.float32)
+
+
+print(template_tensor.size())
+print(source_tensor.size())
+# Perform point cloud registration using DCP
+transformed_source, transformation_matrix = dcp(source_tensor, template_tensor)
+
+# Extract the transformed source point cloud
+transformed_source = transformed_source[0]
+
+# Create an Open3D point cloud from the transformed source
+final_pcd = o3d.geometry.PointCloud()
+final_pcd.points = o3d.utility.Vector3dVector(transformed_source)
+final_pcd.colors = source.colors
+
+# Merge the transformed source and template point clouds
+merged_pcds = final_pcd + template
+
+# Visualize the merged point cloud
+o3d.visualization.draw_geometries([merged_pcds])
