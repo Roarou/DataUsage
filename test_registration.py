@@ -1,74 +1,58 @@
-from learning3d.models import PointNetLK, PointNet
 import open3d as o3d
 import numpy as np
-import torch  # Added torch import
+import cv2
+def get_init_transformation():
+    # Perform individual camera calibration and obtain camera matrices, distortion coefficients etc.
+    ret1, mtx1, dist1, rvecs1, tvecs1 = cv2.calibrateCamera(objpoints, imgpoints1, gray1.shape[::-1], None, None)
+    ret2, mtx2, dist2, rvecs2, tvecs2 = cv2.calibrateCamera(objpoints, imgpoints2, gray2.shape[::-1], None, None)
 
-# Create DCP model
-dcp = PointNetLK(feature_model=PointNet(), delta=1e-02, xtol=1e-07, p0_zero_mean=True, p1_zero_mean=True, pooling='max')
+    # Perform stereo calibration
+    ret, mtx1, dist1, mtx2, dist2, R, T, E, F = cv2.stereoCalibrate(
+        objpoints, imgpoints1, imgpoints2,
+        mtx1, dist1, mtx2, dist2, gray1.shape[::-1],
+        criteria=(cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 1e-5),
+        flags=0
+    )
 
-# Load pre-trained DCP weights if needed
-# dcp.load_state_dict(torch.load('dcp_pretrained_weights.pth'))
+    # Form the transformation matrix
+    trans_init = np.eye(4)
+    trans_init[:3, :3] = cv2.Rodrigues(R)[0]  # Convert rotation vector to matrix
+    trans_init[:3, 3] = T.T[0]
 
-# Read the source and template point clouds
-source = o3d.io.read_point_cloud('Pointcloud_pred0.pcd')
-template = o3d.io.read_point_cloud('Pointcloud_pred1.pcd')
+    print("Initial Transformation Matrix:")
+    print(trans_init)
 
+# Load your point clouds (Replace with your own loading code if necessary)
+source = o3d.io.read_point_cloud("Pointcloud_pred1.pcd")
+target = o3d.io.read_point_cloud("Pointcloud_pred0.pcd")
+print("Number of points in source: ", len(source.points))
+print("Number of points in target: ", len(target.points))
+
+# Estimate normals for point clouds
 source.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30))
-template.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30))
+target.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30))
 
-# Apply RANSAC-based registration
-threshold = 0.02  # Threshold for matching
-trans_init = np.asarray([[1.0, 0.0, 0.0, 0.0],
-                         [0.0, 1.0, 0.0, 0.0],
+# Set ICP parameters
+threshold = 10  # Distance threshold
+trans_init = np.asarray([[1.0, 0.0, 0.0, 0.0],  # Initial transformation
+                         [0.0, 1.0, 0.0, 1.0],
                          [0.0, 0.0, 1.0, 0.0],
-                         [0.0, 0.0, 0.0, 1.0]])  # Initial transformation
+                         [0.0, 0.0, 0.0, 1.0]])
 
-reg_p2p = o3d.pipelines.registration.registration_ransac_based_on_correspondence(
-    source, template, threshold,
-    trans_init,
-    o3d.pipelines.registration.TransformationEstimationPointToPoint(False),
-    3,
-    [o3d.pipelines.registration.CorrespondenceCheckerBasedOnEdgeLength(0.9),
-     o3d.pipelines.registration.CorrespondenceCheckerBasedOnDistance(threshold)],
-    o3d.pipelines.registration.RANSACConvergenceCriteria(100000, 0.999))
+# Apply ICP
+print("Applying ICP...")
+reg_p2p = o3d.pipelines.registration.registration_icp(
+    source, target, threshold, trans_init,
+    o3d.pipelines.registration.TransformationEstimationPointToPoint(),
+            o3d.pipelines.registration.ICPConvergenceCriteria(max_iteration=100000)
+)
 
-# Transform 'source' point cloud based on the estimated transformation
+# Transform the source point cloud using ICP result
 source.transform(reg_p2p.transformation)
 
-# Visualize
-o3d.visualization.draw_geometries([source, template])
+# Visualize the registration result
+o3d.visualization.draw_geometries([source, target])
 
-print("Estimated transformation is:")
+# Output the transformation matrix
+print("Estimated transformation:")
 print(reg_p2p.transformation)
-
-# Convert the point clouds to NumPy arrays and add a batch dimension
-source_np = np.asarray(source.points)
-source_np = np.expand_dims(source_np, axis=0)
-
-template_np = np.asarray(template.points)
-template_np = np.expand_dims(template_np, axis=0)
-
-# Convert NumPy arrays to torch Tensors
-source_tensor = torch.tensor(source_np, dtype=torch.float32)
-
-template_tensor = torch.tensor(template_np, dtype=torch.float32)
-
-
-print(template_tensor.size())
-print(source_tensor.size())
-# Perform point cloud registration using DCP
-transformed_source, transformation_matrix = dcp(source_tensor, template_tensor)
-
-# Extract the transformed source point cloud
-transformed_source = transformed_source[0]
-
-# Create an Open3D point cloud from the transformed source
-final_pcd = o3d.geometry.PointCloud()
-final_pcd.points = o3d.utility.Vector3dVector(transformed_source)
-final_pcd.colors = source.colors
-
-# Merge the transformed source and template point clouds
-merged_pcds = final_pcd + template
-
-# Visualize the merged point cloud
-o3d.visualization.draw_geometries([merged_pcds])
