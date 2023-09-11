@@ -88,7 +88,12 @@ if __name__ == '__main__':
             best_val_loss = validation_loss
             best_model_weights = torch.save(model.state_dict(), f'lr_0,0001_all_data\model_dic_epoch_{epoch}.pt')
             print(f'New best loss: {best_val_loss}')
-            torch.save(model, f'lr_0,0001_all_data\model_1_epoch_{epoch}.pth')
+            torch.save({
+                'epoch': epoch,
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'loss': validation_loss,
+            }, f'lr_0,0001_all_data\model_1_epoch_{epoch}.pth')
             wait = 0  # Reset the waiting counter if there is an improvement
         else:
             wait += 1
