@@ -5,9 +5,14 @@ import numpy as np
 import open3d as o3d
 import sys
 import torch
-from mod import model
-
-
+from Model.spine_segmentation import SpineSegmentationNet
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+model_path = r'C:\Users\cheg\PycharmProjects\DataUsage\Model\lr_0,0001_all_data\model_dic_epoch_12.pt'
+dic = torch.load(model_path)
+model = SpineSegmentationNet()
+model = model.to(device)
+model.load_state_dict(dic)
+model.eval()
 def get_o3d_pcd(point_cloud):
     points = get_np_array(point_cloud.get_data())
     mask = ~np.isnan(points).any(axis=2)
@@ -105,7 +110,7 @@ def main():
                 counter += 1
 
                 if counter == 24:
-                    stacked_point_clouds = torch.stack(point_clouds_normalized, dim=0)
+                    stacked_point_clouds = torch.stack(point_clouds_normalized, dim=0).to(device)
                     # Pass the stacked tensor to your model here
                     output, _ = model(stacked_point_clouds)
                     for i, pred in enumerate(output):
