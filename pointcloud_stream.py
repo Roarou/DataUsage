@@ -2,7 +2,7 @@ import pyzed.sl as sl
 import numpy as np
 import open3d as o3d
 import sys
-
+import os
 
 def get_np_array(array):
     return np.asarray(array)
@@ -26,6 +26,11 @@ def get_o3d_pcd(point_cloud):
     pcd = from_np_to_pcd(xyz, rgb)
     return pcd
 
+def save_pcd(pcd, idx):
+    save_directory = "saved_pointclouds"
+    if not os.path.exists(save_directory):
+        os.makedirs(save_directory)
+    o3d.io.write_point_cloud(f"{save_directory}/pointcloud_{idx}.pcd", pcd)
 
 def main():
     # Initialize ZED camera
@@ -53,7 +58,7 @@ def main():
     print("Starting point cloud extraction and visualization...")
 
     try:
-        while True:
+        for idx in range(200):
             # Grab a new frame from the live stream
             err = cam.grab(runtime_params)
 
@@ -64,20 +69,15 @@ def main():
                 # Convert ZED point cloud to Open3D format
                 pcd = get_o3d_pcd(point_cloud_mat)
 
-                # Update visualization
-                o3d.visualization.draw_geometries([pcd])
-                vis.update_geometry(pcd)
-                vis.poll_events()
-                vis.update_renderer()
-
+                # Save the point cloud
+                save_pcd(pcd, idx)
+                print(f"Saved point cloud #{idx + 1} successfully.")
             else:
-                print("Failed to grab a frame.")
+                print(f"Failed to grab frame #{idx + 1}.")
     except KeyboardInterrupt:
         print("Exiting...")
     finally:
-        vis.destroy_window()
         cam.close()
-
 
 if __name__ == "__main__":
     main()
