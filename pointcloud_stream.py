@@ -65,6 +65,7 @@ def main():
                 pcd = get_o3d_pcd(point_cloud_mat)
 
                 # Update visualization
+                o3d.visualization.draw_geometries([pcd])
                 vis.update_geometry(pcd)
                 vis.poll_events()
                 vis.update_renderer()
