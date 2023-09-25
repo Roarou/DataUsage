@@ -3,7 +3,7 @@ import numpy as np
 import os
 from DataProcessing.get_vertebras_displacement import visualize_displacements
 import random
-
+import re
 # Color definitions for vertebral segments
 colors = [[1, 0, 0],  # Red
           [0, 1, 0],  # Green
@@ -59,8 +59,23 @@ def process_point_cloud(input_path: str, path_pose, gt_path=None) -> dict:
     point_cloud.colors = o3d.utility.Vector3dVector(black_color)
 
     # Save the modified point cloud (if needed)
-    base_filename = os.path.basename(input_path)
-    output_filename = os.path.splitext(base_filename)[0] + "_GT" + os.path.splitext(base_filename)[1]
+    # base_filename = os.path.basename(input_path)
+    # output_filename = os.path.splitext(base_filename)[0] + "_GT" + os.path.splitext(base_filename)[1]
+
+
+    # Use regular expressions to extract numbers
+    numbers = re.findall(r'\d+', input_path)
+
+    # Extract values based on their positions in the list
+    if len(numbers) >= 4:
+        spec = numbers[0]  # 2
+        rec = numbers[1]  # 3
+        pcd = numbers[2]  # 123
+        vid = numbers[3]  # 1
+    else:
+        # Handle the case where there are not enough numbers in the input path
+        spec, rec, pcd, vid = "", "", "", ""
+    output_filename = f'Poincloud_{pcd}_GT_Specimen_{spec}_Recording{rec}_Video_{vid}.pcd'
     output_path = os.path.join(gt_path or os.path.dirname(input_path), output_filename)
 
     # Visualize and print save path
