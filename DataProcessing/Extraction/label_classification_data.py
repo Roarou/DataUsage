@@ -85,7 +85,7 @@ def launch_data():
 
             for video_name in os.listdir(pointcloud_directory):
                 video_directory = os.path.join(pointcloud_directory, video_name)
-                groundtruth_directory = os.path.join(video_directory, 'Groundtruth')
+                groundtruth_directory =r'L:\groundtruth'
                 if os.path.exists(groundtruth_directory):
                     print(f'Deleting {groundtruth_directory}')
                     shutil.rmtree(groundtruth_directory)

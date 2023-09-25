@@ -64,11 +64,11 @@ def process_point_cloud(input_path: str, path_pose, gt_path=None) -> dict:
     output_path = os.path.join(gt_path or os.path.dirname(input_path), output_filename)
 
     # Visualize and print save path
-    o3d.visualization.draw_geometries([point_cloud])
+    # o3d.visualization.draw_geometries([point_cloud])
     print(f"Saved to {output_path}")
-    # SUCCESS = o3d.io.write_point_cloud(output_path, point_cloud)
+    SUCCESS = o3d.io.write_point_cloud(output_path, point_cloud)
 
-    return vertebrae_indices #, SUCCESS
+    return vertebrae_indices, SUCCESS
 
 
 if __name__ == "__main__":
