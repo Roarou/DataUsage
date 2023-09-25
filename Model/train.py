@@ -48,9 +48,16 @@ def test(model, test_loader, epoch, writer, mode='Test'):
         for batch_idx, (data, target) in enumerate(progress_bar):
             data, target = data.to(device), target.to(device)
             output, _ = model(data)
+            binary_predictions = (output >= 0.5).float()
             loss = criterion(output, target)
             total_loss += loss.item()
-            progress_bar.set_postfix({'loss': total_loss / (batch_idx + 1)})
+            metrics = calculate_metrics(binary_predictions, target)
+
+            writer.add_scalar('Training loss', total_loss / (batch_idx + 1), epoch)
+            writer.add_scalar('F1', metrics['F1'], epoch)
+            writer.add_scalar('IoU', metrics['IoU'], epoch)
+            writer.add_scalar('Precision', metrics['Precision'], epoch)
+            writer.add_scalar('Recall', metrics['Recall'], epoch)
     loss = total_loss / len(test_loader)
     print(f'{mode} Loss: {loss}')
     writer.add_scalar(f'{mode.lower()}_loss', loss, epoch)
@@ -76,7 +83,7 @@ if __name__ == '__main__':
     validation_loader = DataLoader(validation_dataset, batch_size=batch)
 
     # TensorBoard Writer
-    writer = SummaryWriter(log_dir='logs')
+    writer = SummaryWriter(log_dir='logs_test')
 
     best_test_loss = float('inf')
     for epoch in range(max_epochs):
