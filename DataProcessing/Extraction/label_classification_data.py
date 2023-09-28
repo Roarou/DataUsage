@@ -3,7 +3,7 @@ from DataProcessing.Pointcloud.crop_vertebrae import process_point_cloud
 import multiprocessing
 import shutil
 import time
-
+from tqdm import tqdm
 base_path = r'G:\SpineDepth'  # Base directory
 TIMEOUT = 600  # Timeout in seconds
 
@@ -19,9 +19,9 @@ def process_single_file(file_path, subdirectory_path, groundtruth_directory):
     """
     filename = os.path.basename(file_path)
     if os.path.isfile(file_path) and filename.endswith('.pcd'):
-        print(filename)
+        #        print(filename)
         _, SUCCESS = process_point_cloud(file_path, path_pose=subdirectory_path, gt_path=groundtruth_directory)
-        print(SUCCESS)
+        #        print(SUCCESS)
 
 
 def process_single_file_with_timeout(args):
@@ -59,8 +59,12 @@ def process_video_directory(video_directory, subdirectory_path, groundtruth_dire
     """
     list_pcd = os.listdir(video_directory)
     list_pcd = [filename for filename in list_pcd if filename.endswith('.pcd')]
-    list_pcd = sorted(list_pcd, key=lambda x: int(x.split('_')[1].split('.')[0]))
 
+    try:
+        list_pcd = sorted(list_pcd, key=lambda x: int(x.split('_')[1].split('.')[0]))
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        print(list_pcd)
     with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as pool:
         pool.map(process_single_file_with_timeout,
                  [(os.path.join(video_directory, filename), subdirectory_path, groundtruth_directory) for filename in
@@ -71,6 +75,7 @@ def launch_data():
     """
     Launch data processing for all specimens and recordings.
     """
+    groundtruth_directory = r'L:\groundtruth'
     for i in range(2, 11):
         specimen_directory = f'Specimen_{i}'  # Create specimen directory name
         specimen_directory_path = os.path.join(base_path, specimen_directory)
@@ -85,13 +90,9 @@ def launch_data():
 
             for video_name in os.listdir(pointcloud_directory):
                 video_directory = os.path.join(pointcloud_directory, video_name)
-                groundtruth_directory =r'L:\groundtruth'
-                if os.path.exists(groundtruth_directory):
-                    print(f'Deleting {groundtruth_directory}')
-                    shutil.rmtree(groundtruth_directory)
-                os.makedirs(groundtruth_directory, exist_ok=True)
-                print(f'Created {groundtruth_directory}')
+
                 process_video_directory(video_directory, subdirectory_path, groundtruth_directory)
+
 
 
 if __name__ == "__main__":

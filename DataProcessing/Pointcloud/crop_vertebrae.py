@@ -27,7 +27,10 @@ def process_point_cloud(input_path: str, path_pose, gt_path=None) -> dict:
     - dict: Map of vertebral labels ("L1" to "L5") to point indices within bounding boxes.
     """
     # Read the point cloud from the provided path
-    point_cloud = o3d.io.read_point_cloud(input_path)
+    try:
+        point_cloud = o3d.io.read_point_cloud(input_path, remove_nan_points=True, remove_infinite_points=True)
+    except Exception as e:
+        print(f"An error occurred: {e}")
 
     # Determine the video source and retrieve the corresponding pose data
     if 'Video_0' in input_path:
@@ -40,7 +43,6 @@ def process_point_cloud(input_path: str, path_pose, gt_path=None) -> dict:
     pose_path = os.path.join(path_pose, pose)
     specimen_number = int(input_path.split('Specimen_')[1].split('\\')[0])
     frame = int(input_path.split('_')[-1].split('.')[0])
-
     # Compute vertebral segment oriented bounding boxes
     vertebrae, _ = visualize_displacements(pose_path, frame, specimen=specimen_number)
     vertebrae_indices = {f"L{i + 1}": None for i in range(5)}
@@ -70,8 +72,8 @@ def process_point_cloud(input_path: str, path_pose, gt_path=None) -> dict:
     if len(numbers) >= 4:
         spec = numbers[0]  # 2
         rec = numbers[1]  # 3
-        pcd = numbers[2]  # 123
-        vid = numbers[3]  # 1
+        vid = numbers[2]  # 123
+        pcd = numbers[3]  # 1
     else:
         # Handle the case where there are not enough numbers in the input path
         spec, rec, pcd, vid = "", "", "", ""
@@ -80,7 +82,7 @@ def process_point_cloud(input_path: str, path_pose, gt_path=None) -> dict:
 
     # Visualize and print save path
     # o3d.visualization.draw_geometries([point_cloud])
-    print(f"Saved to {output_path}")
+    #   print(f"Saved to {output_path}")
     SUCCESS = o3d.io.write_point_cloud(output_path, point_cloud)
 
     return vertebrae_indices, SUCCESS
