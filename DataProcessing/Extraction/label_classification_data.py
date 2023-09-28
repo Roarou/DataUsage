@@ -76,6 +76,9 @@ def launch_data():
     Launch data processing for all specimens and recordings.
     """
     groundtruth_directory = r'L:\groundtruth'
+    # Check if the 'groundtruth' directory exists, and create it if it doesn't
+    if not os.path.exists(groundtruth_directory):
+        os.makedirs(groundtruth_directory, exist_ok=True)
     for i in range(2, 11):
         specimen_directory = f'Specimen_{i}'  # Create specimen directory name
         specimen_directory_path = os.path.join(base_path, specimen_directory)
