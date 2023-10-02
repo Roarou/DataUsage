@@ -28,12 +28,12 @@ def normalize_point_cloud(points, filepath=None):
 
 def map_color_to_label(color):
     mapping = {
-        (1, 0, 0): 0,  # L1
-        (0, 1, 0): 1,  # L2
-        (0, 0, 1): 2,  # L3
-        (1, 1, 0): 3,  # L4
-        (1, 0, 1): 4,  # L5
-        (0, 0, 0): 5  # Non-spine
+        (1, 0, 0): [1, 0, 0, 0, 0, 0],  # L1
+        (0, 1, 0): [0, 1, 0, 0, 0, 0],  # L2
+        (0, 0, 1): [0, 0, 1, 0, 0, 0],  # L3
+        (1, 1, 0): [0, 0, 0, 1, 0, 0],  # L4
+        (1, 0, 1): [0, 0, 0, 0, 1, 0],  # L5
+        (0, 0, 0): [0, 0, 0, 0, 0, 1]  # Non-spine
     }
     return mapping.get(tuple(color), -1)  # -1 for any unexpected colors
 

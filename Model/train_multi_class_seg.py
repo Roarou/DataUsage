@@ -4,8 +4,8 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
-from Model.spine_segmentation import SpineSegmentationNet
-from Model.load_dataset import PointcloudDataset  # Replace with the proper file name
+from Model.spine_multi_class_segmentation import SpineSegmentationNet
+from Model.load_dataset_multi import PointcloudDataset  # Replace with the proper file name
 from Model.get_metrics import calculate_metrics
 
 batch = 24
@@ -14,22 +14,29 @@ patience = 2
 wait = 0
 best_val_loss = float('inf')
 
+def to_one_hot(tensor, num_classes):
+    n, h, w = tensor.size()
+    one_hot = torch.zeros(n, num_classes, h, w).scatter_(1, tensor.unsqueeze(1), 1)
+    return one_hot
 def train(model, train_loader, optimizer, epoch, writer):
     model.train()
     total_loss = 0
     criterion = nn.CrossEntropyLoss()
     progress_bar = tqdm(train_loader, desc='Train Epoch: {}'.format(epoch))
+    # Check if model parameters require grad
+    # for name, param in model.named_parameters():
+    #     print(name, param.requires_grad)
+
     for batch_idx, (data, target) in enumerate(progress_bar):
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
         output, _ = model(data)
-        predictions = torch.argmax(output, dim=2)
         loss = criterion(output, target)
         loss.backward()
         optimizer.step()
         total_loss += loss.item()
         progress_bar.set_postfix({'loss': total_loss / (batch_idx + 1)})
-        metrics = calculate_metrics(predictions, target)
+        metrics = calculate_metrics(output, target)
 
         writer.add_scalar('Training loss', total_loss / (batch_idx + 1), epoch)
         writer.add_scalar('F1', metrics['F1'], epoch)
@@ -48,10 +55,9 @@ def test(model, test_loader, epoch, writer, mode='Test'):
         for batch_idx, (data, target) in enumerate(progress_bar):
             data, target = data.to(device), target.to(device)
             output, _ = model(data)
-            binary_predictions = (output >= 0.5).float()
             loss = criterion(output, target)
             total_loss += loss.item()
-            metrics = calculate_metrics(binary_predictions, target)
+            metrics = calculate_metrics(output, target)
 
             writer.add_scalar('Training loss', total_loss / (batch_idx + 1), epoch)
             writer.add_scalar('F1', metrics['F1'], epoch)
@@ -71,7 +77,7 @@ if __name__ == '__main__':
     optimizer = optim.Adam(model.parameters(), lr=0.0001)
 
     # Prepare DataLoader for train, test, validation
-    base_path = r'L:\groundtruth_labeled' # Path to your dataset
+    base_path = r'L:\groundtruth_labeled'  # Path to your dataset
     num_points = 20000  # Number of points to sample
 
     train_dataset = PointcloudDataset(base_path=base_path, split='train', num_points=num_points)
@@ -83,7 +89,7 @@ if __name__ == '__main__':
     validation_loader = DataLoader(validation_dataset, batch_size=batch)
 
     # TensorBoard Writer
-    writer = SummaryWriter(log_dir='logs_test')
+    writer = SummaryWriter(log_dir='logs_segmentation')
 
     best_test_loss = float('inf')
     for epoch in range(max_epochs):
