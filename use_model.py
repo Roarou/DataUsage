@@ -40,7 +40,7 @@ def predict_on_pointcloud(pointcloud_path):
     downscale = torch.tensor(downscale, dtype=torch.float32)
     downscale = downscale.unsqueeze(0)
     downscale = downscale.to(device)
-
+    o3d.visualization.draw_geometries([pcd])
     with torch.no_grad():
         predictions, _ = model(downscale)
 
