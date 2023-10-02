@@ -9,7 +9,7 @@ from Model.load_dataset import PointcloudDataset  # Replace with the proper file
 from Model.get_metrics import calculate_metrics
 
 batch = 24
-max_epochs = 50  # You can set the maximum number of epochs as per your requirement
+max_epochs = 25  # You can set the maximum number of epochs as per your requirement
 patience = 2
 wait = 0
 best_val_loss = float('inf')
@@ -23,13 +23,13 @@ def train(model, train_loader, optimizer, epoch, writer):
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
         output, _ = model(data)
-        binary_predictions = (output >= 0.5).float()
+        predictions = torch.argmax(output, dim=2)
         loss = criterion(output, target)
         loss.backward()
         optimizer.step()
         total_loss += loss.item()
         progress_bar.set_postfix({'loss': total_loss / (batch_idx + 1)})
-        metrics = calculate_metrics(binary_predictions, target)
+        metrics = calculate_metrics(predictions, target)
 
         writer.add_scalar('Training loss', total_loss / (batch_idx + 1), epoch)
         writer.add_scalar('F1', metrics['F1'], epoch)
@@ -42,7 +42,7 @@ def train(model, train_loader, optimizer, epoch, writer):
 def test(model, test_loader, epoch, writer, mode='Test'):
     model.eval()
     total_loss = 0
-    criterion = nn.BCELoss()
+    criterion = nn.CrossEntropyLoss()
     progress_bar = tqdm(test_loader, desc=f'{mode} Epoch: {epoch}')
     with torch.no_grad():
         for batch_idx, (data, target) in enumerate(progress_bar):
