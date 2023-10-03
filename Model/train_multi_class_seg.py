@@ -7,17 +7,13 @@ from tqdm import tqdm
 from Model.spine_multi_class_segmentation import SpineSegmentationNet
 from Model.load_dataset_multi import PointcloudDataset  # Replace with the proper file name
 from Model.get_metrics import calculate_metrics
-
+import time
 batch = 24
 max_epochs = 25  # You can set the maximum number of epochs as per your requirement
 patience = 2
 wait = 0
 best_val_loss = float('inf')
 
-def to_one_hot(tensor, num_classes):
-    n, h, w = tensor.size()
-    one_hot = torch.zeros(n, num_classes, h, w).scatter_(1, tensor.unsqueeze(1), 1)
-    return one_hot
 def train(model, train_loader, optimizer, epoch, writer):
     model.train()
     total_loss = 0
@@ -28,7 +24,7 @@ def train(model, train_loader, optimizer, epoch, writer):
     #     print(name, param.requires_grad)
 
     for batch_idx, (data, target) in enumerate(progress_bar):
-        data, target = data.to(device), target.to(device)
+        data, target = data.to(device), target.to(device).long()
         optimizer.zero_grad()
         output, _ = model(data)
         loss = criterion(output, target)
@@ -36,13 +32,17 @@ def train(model, train_loader, optimizer, epoch, writer):
         optimizer.step()
         total_loss += loss.item()
         progress_bar.set_postfix({'loss': total_loss / (batch_idx + 1)})
-        metrics = calculate_metrics(output, target)
+        print(output.shape)
+        predictions = torch.argmax(output,dim=1)
+        print(predictions.shape)
+        metrics = calculate_metrics(predictions, target)
 
         writer.add_scalar('Training loss', total_loss / (batch_idx + 1), epoch)
         writer.add_scalar('F1', metrics['F1'], epoch)
         writer.add_scalar('IoU', metrics['IoU'], epoch)
         writer.add_scalar('Precision', metrics['Precision'], epoch)
         writer.add_scalar('Recall', metrics['Recall'], epoch)
+
     writer.add_scalar('train_loss', total_loss / len(train_loader), epoch)
 
 
@@ -74,12 +74,12 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = SpineSegmentationNet().to(device)
     print('cuda') if torch.cuda.is_available() else print('cpu')
-    optimizer = optim.Adam(model.parameters(), lr=0.0001)
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
 
     # Prepare DataLoader for train, test, validation
     base_path = r'L:\groundtruth_labeled'  # Path to your dataset
     num_points = 20000  # Number of points to sample
-
+    tt = time.time()
     train_dataset = PointcloudDataset(base_path=base_path, split='train', num_points=num_points)
     test_dataset = PointcloudDataset(base_path=base_path, split='test', num_points=num_points)
     validation_dataset = PointcloudDataset(base_path=base_path, split='val', num_points=num_points)
@@ -87,7 +87,7 @@ if __name__ == '__main__':
     train_loader = DataLoader(train_dataset, batch_size=batch, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=batch)
     validation_loader = DataLoader(validation_dataset, batch_size=batch)
-
+    print(f'loading {time.time()-tt}')
     # TensorBoard Writer
     writer = SummaryWriter(log_dir='logs_segmentation')
 
@@ -99,14 +99,14 @@ if __name__ == '__main__':
         # Save model
         if validation_loss < best_val_loss:
             best_val_loss = validation_loss
-            best_model_weights = torch.save(model.state_dict(), f'lr_0,0001_all_data\model_dic_epoch_{epoch}.pt')
+            best_model_weights = torch.save(model.state_dict(), f'segmentation_multi\model_dic_epoch_{epoch}.pt')
             print(f'New best loss: {best_val_loss}')
             torch.save({
                 'epoch': epoch,
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'loss': validation_loss,
-            }, f'lr_0,0001_all_data\model_1_epoch_{epoch}.pth')
+            }, f'segmentation_multi\model_1_epoch_{epoch}.pth')
             wait = 0  # Reset the waiting counter if there is an improvement
         else:
             wait += 1
