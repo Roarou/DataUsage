@@ -32,9 +32,7 @@ def train(model, train_loader, optimizer, epoch, writer):
         optimizer.step()
         total_loss += loss.item()
         progress_bar.set_postfix({'loss': total_loss / (batch_idx + 1)})
-        print(output.shape)
-        predictions = torch.argmax(output,dim=1)
-        print(predictions.shape)
+        predictions = torch.argmax(output, dim=1)
         metrics = calculate_metrics(predictions, target)
 
         writer.add_scalar('Training loss', total_loss / (batch_idx + 1), epoch)
