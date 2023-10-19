@@ -8,20 +8,20 @@ from Model.spine_multi_class_segmentation import SpineSegmentationNet
 from Model.load_dataset_multi import PointcloudDataset  # Replace with the proper file name
 from Model.get_metrics import calculate_metrics
 import time
+
 batch = 24
 max_epochs = 25  # You can set the maximum number of epochs as per your requirement
 patience = 2
 wait = 0
 best_val_loss = float('inf')
 
+
 def train(model, train_loader, optimizer, epoch, writer):
     model.train()
     total_loss = 0
-    criterion = nn.CrossEntropyLoss()
+    weights = torch.tensor([1.11, 50, 50, 50, 50, 50]).to(device)
+    criterion = nn.CrossEntropyLoss(weight=weights)
     progress_bar = tqdm(train_loader, desc='Train Epoch: {}'.format(epoch))
-    # Check if model parameters require grad
-    # for name, param in model.named_parameters():
-    #     print(name, param.requires_grad)
 
     for batch_idx, (data, target) in enumerate(progress_bar):
         data, target = data.to(device), target.to(device).long()
@@ -34,29 +34,31 @@ def train(model, train_loader, optimizer, epoch, writer):
         progress_bar.set_postfix({'loss': total_loss / (batch_idx + 1)})
         predictions = torch.argmax(output, dim=1)
         metrics = calculate_metrics(predictions, target)
-
         writer.add_scalar('Training loss', total_loss / (batch_idx + 1), epoch)
         writer.add_scalar('F1', metrics['F1'], epoch)
         writer.add_scalar('IoU', metrics['IoU'], epoch)
         writer.add_scalar('Precision', metrics['Precision'], epoch)
         writer.add_scalar('Recall', metrics['Recall'], epoch)
-
     writer.add_scalar('train_loss', total_loss / len(train_loader), epoch)
 
 
 def test(model, test_loader, epoch, writer, mode='Test'):
     model.eval()
     total_loss = 0
-    criterion = nn.CrossEntropyLoss()
+    weights = torch.tensor([50, 50, 50, 50, 50, 1.11]).to(device)
+    criterion = nn.CrossEntropyLoss(weight=weights)
+
     progress_bar = tqdm(test_loader, desc=f'{mode} Epoch: {epoch}')
     with torch.no_grad():
         for batch_idx, (data, target) in enumerate(progress_bar):
-            data, target = data.to(device), target.to(device)
+            data, target = data.to(device), target.to(device).long()
+            optimizer.zero_grad()
             output, _ = model(data)
             loss = criterion(output, target)
             total_loss += loss.item()
-            metrics = calculate_metrics(output, target)
-
+            predictions = torch.argmax(output, dim=1)
+            progress_bar.set_postfix({'loss': total_loss / (batch_idx + 1)})
+            metrics = calculate_metrics(predictions, target)
             writer.add_scalar('Training loss', total_loss / (batch_idx + 1), epoch)
             writer.add_scalar('F1', metrics['F1'], epoch)
             writer.add_scalar('IoU', metrics['IoU'], epoch)
@@ -85,7 +87,7 @@ if __name__ == '__main__':
     train_loader = DataLoader(train_dataset, batch_size=batch, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=batch)
     validation_loader = DataLoader(validation_dataset, batch_size=batch)
-    print(f'loading {time.time()-tt}')
+    print(f'loading {time.time() - tt}')
     # TensorBoard Writer
     writer = SummaryWriter(log_dir='logs_segmentation')
 
