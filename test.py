@@ -1,51 +1,47 @@
-# from DataProcessing.Pointcloud.merge_point_cloud import process_point_cloud
-# video_0 =r'G:\SpineDepth\Specimen_6\Recordings\Recording5\pointcloud\Video_0\Pointcloud_pred.pcd'
-# video_1 = r'G:\SpineDepth\Specimen_6\Recordings\Recording5\pointcloud\Video_1\Pointcloud_pred.pcd'
-# process_point_cloud([video_0, video_1, 6, 120, r'G:\SpineDepth\Specimen_6\Recordings\Recording5'])
 import os
-import numpy as np
-import open3d as o3d
-from tqdm import tqdm
-from multiprocessing import Pool, cpu_count
+import shutil
 
+# Base paths for source and destination
+source_base_path = 'D:\Ghazi'
+destination_base_path = 'M:\\SpineDepth'
 
-def process_file(file):
-    base_path = r'L:\groundtruth'  # Replace with your actual path
-    corrupted_path = []
+# Loop through each Specimen_{I}
+for i in range(1,2):
+    specimen_folder = f"Specimen_{i}"
+    recordings_path = os.path.join(source_base_path, specimen_folder, "Recordings")
 
-    file_path = os.path.join(base_path, file)
-    input_pcd = o3d.io.read_point_cloud(file_path, remove_nan_points=True, remove_infinite_points=True)
-    points = np.asarray(input_pcd.points)
+    # Check if the Recordings path exists (for safety)
+    if not os.path.exists(recordings_path):
+        print(f"Recordings path not found for Specimen_{i}")
+        continue
 
-    if np.any(np.isnan(points)):
-        raise ValueError(f"Input data contains NaN values. Reading: {file}")
-        corrupted_path.append(file)
+    # Loop through each Recording{I}
+    for j in range(40):
+        recording_folder = f"Recording{j}"
+        rec_f=f"recording{j}"
+        source_recording_path = os.path.join(recordings_path, recording_folder)
 
-    centroid = np.mean(points, axis=0)
-    if np.any(np.isnan(centroid)):
-        corrupted_path.append(file)
+        # Check if the Recording path exists (for safety)
+        if not os.path.exists(source_recording_path):
+            print(f"Recording path not found for Specimen_{i}, Recording{j}")
+            continue
 
-    return corrupted_path
+        # Define destination path
+        destination_recording_path = os.path.join(destination_base_path, specimen_folder, "recordings",
+                                                  rec_f)
 
+        # Create destination folder if it doesn't exist
+        os.makedirs(destination_recording_path, exist_ok=True)
 
-if __name__ == '__main__':
-    base_path = r'L:\groundtruth'
-    file_list = os.listdir(base_path)
+        # Define file paths
+        file1_path = os.path.join(source_recording_path, "Poses_0.txt")
+        file2_path = os.path.join(source_recording_path, "Poses_1.txt")
 
-    num_cpus = cpu_count()
+        # Move files
+        if os.path.exists(file1_path):
+            shutil.copy(file1_path, os.path.join(destination_recording_path, "Poses_0.txt"))
+            print('done')
+        if os.path.exists(file2_path):
+            shutil.copy(file2_path, os.path.join(destination_recording_path, "Poses_1.txt"))
 
-    # Utilize multiprocessing with Pool
-    with Pool(processes=num_cpus) as pool:
-        # wrap the pool.map with tqdm to show the progress bar
-        results = list(tqdm(pool.imap(process_file, file_list), total=len(file_list), desc='Processing files'))
-
-    # Flatten the list of corrupted_path and remove duplicates
-    corrupted_path = list(set([item for sublist in results for item in sublist]))
-
-    print("Corrupted Files:", corrupted_path)
-    # Writing the corrupted files to a text file
-    with open('corrupted_files_gt.txt', 'w') as f:
-        for file_name in corrupted_path:
-            f.write(f"{file_name}\n")
-
-    print("Corrupted files have been written to 'corrupted_files.txt'")
+print("Files moved successfully!")
