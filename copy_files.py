@@ -40,7 +40,6 @@ for i in range(1,2):
         # Move files
         if os.path.exists(file1_path):
             shutil.copy(file1_path, os.path.join(destination_recording_path, "Poses_0.txt"))
-            print('done')
         if os.path.exists(file2_path):
             shutil.copy(file2_path, os.path.join(destination_recording_path, "Poses_1.txt"))
 
