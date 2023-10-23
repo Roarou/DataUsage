@@ -52,5 +52,7 @@ class SpineSegmentationNet(nn.Module):
         # FC layers
         x = F.relu(feat1)
         x = self.conv_layer2(x)  # Ensure that conv2 has 1 output channel for binary classification
-        x = F.softmax(x, dim=1)  # Applying sigmoid activation for binary classification
+
+        x = F.log_softmax(x, dim=1)  # Applying sigmoid activation for binary classification
+
         return x, l2_points

@@ -20,7 +20,7 @@ def train(model, train_loader, optimizer, epoch, writer):
     model.train()
     total_loss = 0
     weights = torch.tensor([1.11, 50, 50, 50, 50, 50]).to(device)
-    criterion = nn.CrossEntropyLoss(weight=weights)
+    criterion = nn.NLLLoss(weight=weights)
     progress_bar = tqdm(train_loader, desc='Train Epoch: {}'.format(epoch))
 
     for batch_idx, (data, target) in enumerate(progress_bar):
@@ -32,6 +32,7 @@ def train(model, train_loader, optimizer, epoch, writer):
         optimizer.step()
         total_loss += loss.item()
         progress_bar.set_postfix({'loss': total_loss / (batch_idx + 1)})
+        print(output)
         predictions = torch.argmax(output, dim=1)
         metrics = calculate_metrics(predictions, target)
         writer.add_scalar('Training loss', total_loss / (batch_idx + 1), epoch)
@@ -45,7 +46,7 @@ def train(model, train_loader, optimizer, epoch, writer):
 def test(model, test_loader, epoch, writer, mode='Test'):
     model.eval()
     total_loss = 0
-    weights = torch.tensor([50, 50, 50, 50, 50, 1.11]).to(device)
+    weights = torch.tensor([1.11,50, 50, 50, 50, 50]).to(device)
     criterion = nn.CrossEntropyLoss(weight=weights)
 
     progress_bar = tqdm(test_loader, desc=f'{mode} Epoch: {epoch}')
