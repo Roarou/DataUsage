@@ -20,6 +20,7 @@ def process_single_file(file_path, subdirectory_path, groundtruth_directory):
     filename = os.path.basename(file_path)
     if os.path.isfile(file_path) and filename.endswith('.pcd'):
         #        print(filename)
+        print(file_path,subdirectory_path, groundtruth_directory)
         _, SUCCESS = process_point_cloud(file_path, path_pose=subdirectory_path, gt_path=groundtruth_directory)
         #        print(SUCCESS)
 
@@ -79,7 +80,7 @@ def launch_data():
     # Check if the 'groundtruth' directory exists, and create it if it doesn't
     if not os.path.exists(groundtruth_directory):
         os.makedirs(groundtruth_directory, exist_ok=True)
-    for i in range(2, 11):
+    for i in range(10, 11):
         specimen_directory = f'Specimen_{i}'  # Create specimen directory name
         specimen_directory_path = os.path.join(base_path, specimen_directory)
         recordings_directory = 'Recordings'
@@ -93,7 +94,7 @@ def launch_data():
 
             for video_name in os.listdir(pointcloud_directory):
                 video_directory = os.path.join(pointcloud_directory, video_name)
-
+                print(subdirectory_path, groundtruth_directory)
                 process_video_directory(video_directory, subdirectory_path, groundtruth_directory)
 
 

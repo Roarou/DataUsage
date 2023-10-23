@@ -31,7 +31,7 @@ def process_point_cloud(input_path: str, path_pose, gt_path=None) -> dict:
         point_cloud = o3d.io.read_point_cloud(input_path, remove_nan_points=True, remove_infinite_points=True)
     except Exception as e:
         print(f"An error occurred: {e}")
-
+    o3d.visualization.draw_geometries([point_cloud])
     # Determine the video source and retrieve the corresponding pose data
     if 'Video_0' in input_path:
         pose = 'Poses_0.txt'
@@ -41,6 +41,7 @@ def process_point_cloud(input_path: str, path_pose, gt_path=None) -> dict:
         raise ValueError("Input path must contain either 'Video_0' or 'Video_1'")
 
     pose_path = os.path.join(path_pose, pose)
+
     specimen_number = int(input_path.split('Specimen_')[1].split('\\')[0])
     frame = int(input_path.split('_')[-1].split('.')[0])
     # Compute vertebral segment oriented bounding boxes
@@ -51,8 +52,8 @@ def process_point_cloud(input_path: str, path_pose, gt_path=None) -> dict:
     for i, pc in enumerate(vertebrae):
         oriented_bbox = pc.get_oriented_bounding_box()
         oriented_bbox.color = random.choice(colors)
-        vertebrae_indices[f"L{i + 1}"] = oriented_bbox.get_point_indices_within_bounding_box(point_cloud.points)
 
+        vertebrae_indices[f"L{i + 1}"] = oriented_bbox.get_point_indices_within_bounding_box(point_cloud.points)
     # Color the points outside the bounding boxes black, and those inside with defined colors
     black_color = np.zeros_like(np.asarray(point_cloud.colors))
     for i, indices in enumerate(vertebrae_indices.values()):
@@ -77,20 +78,23 @@ def process_point_cloud(input_path: str, path_pose, gt_path=None) -> dict:
     else:
         # Handle the case where there are not enough numbers in the input path
         spec, rec, pcd, vid = "", "", "", ""
-    output_filename = f'Poincloud_{pcd}_GT_Specimen_{spec}_Recording{rec}_Video_{vid}.pcd'
-    output_path = os.path.join(gt_path or os.path.dirname(input_path), output_filename)
-
+    output_filename = f'Poincloud_{pcd}_GT_Specimen_{spec}_Recording{rec}_Video_{vid}_aligned.pcd'
+    for j,v in enumerate(vertebrae):
+        point_cloud = v
+        output_filename = f'L_{j+1}_Specimen_{spec}.pcd'
+        output_path = os.path.join(gt_path or os.path.dirname(input_path), output_filename)
+        SUCCESS = o3d.io.write_point_cloud(output_path, point_cloud)
     # Visualize and print save path
-    # o3d.visualization.draw_geometries([point_cloud])
+    #  o3d.visualization.draw_geometries([point_cloud, vertebrae[0],vertebrae[1],vertebrae[4],vertebrae[2],vertebrae[3]])
     #   print(f"Saved to {output_path}")
-    SUCCESS = o3d.io.write_point_cloud(output_path, point_cloud)
+    #  SUCCESS = o3d.io.write_point_cloud(output_path, point_cloud)
 
-    return vertebrae_indices, SUCCESS
+    return vertebrae_indices#  , SUCCESS
 
 
 if __name__ == "__main__":
     # Define the input path
-    input_path = r"G:\SpineDepth\Specimen_2\Recordings\Recording0\pointcloud\Video_0\Pointcloud_0.pcd"
-    poses_1_file_path = r"G:\SpineDepth\Specimen_2\Recordings\Recording0"
+    input_path = r"G:\SpineDepth\Specimen_2\Recordings\Recording10\pointcloud\Video_0\Pointcloud_0.pcd"
+    poses_1_file_path = r"G:\SpineDepth\Specimen_2\Recordings\Recording10"
     # Run the function
-    idx = process_point_cloud(input_path=input_path, path_pose=poses_1_file_path)
+    idx = process_point_cloud(input_path=input_path, path_pose=poses_1_file_path, gt_path=r"G:")
