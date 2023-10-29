@@ -28,14 +28,14 @@ def normalize_point_cloud(points, filepath=None):
 
 def map_color_to_label(color):
     mapping = {
-        (1, 0, 0): 1,  # L1
-        (0, 1, 0): 2,  # L2
-        (0, 0, 1): 3,  # L3
-        (1, 1, 0): 4,  # L4
-        (1, 0, 1): 5,  # L5
-        (0, 0, 0): 0  # Non-spine
+        (1, 0, 0): [1,0,0,0,0,0],  # L1
+        (0, 1, 0): [0,1,0,0,0,0],  # L2
+        (0, 0, 1): [0,0,1,0,0,0],  # L3
+        (1, 1, 0): [0,0,0,1,0,0],  # L4
+        (1, 0, 1): [0,0,0,0,1,0],  # L5
+        (0, 0, 0): [0,0,0,0,0,1]  # Non-spine
     }
-    return mapping.get(tuple(color), -1)  # -1 for any unexpected colors
+    return mapping.get(tuple(color) , [0,0,0,0,0,0])  # -1 for any unexpected colors
 
 
 class PointcloudDataset(Dataset):
@@ -96,7 +96,10 @@ class PointcloudDataset(Dataset):
         input = np.asarray(input_pcd.points)
         colors = np.asarray(input_pcd.colors)
         labels = np.array([map_color_to_label(c) for c in colors])
-
+        count = np.sum(np.all(labels == [0, 0, 0, 0, 0, 0], axis=0))
+        if count > 0:
+            print(f"Vector appears {count} times in a list of length {len(labels)}.")
+            print(f"Warning: Unexpected color detected in file: {filename}")
         if len(input) > self.target_num_points:
             sampled_indices = np.random.choice(len(input), self.target_num_points, replace=False)
             input = input[sampled_indices]
@@ -106,5 +109,4 @@ class PointcloudDataset(Dataset):
 
         input_data = torch.tensor(normalized_input, dtype=torch.float32)
         labels_tensor = torch.tensor(labels, dtype=torch.float32)
-
         return input_data, labels_tensor
