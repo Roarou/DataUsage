@@ -7,7 +7,7 @@ import sys
 import torch
 from Model.spine_segmentation import SpineSegmentationNet
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-model_path = r'C:\Users\cheg\PycharmProjects\DataUsage\Model\lr_0,0001_all_data\model_dic_epoch_12.pt'
+model_path = r'/Model/lr_0,0001_all_data/model_dic_epoch_12.pt'
 dic = torch.load(model_path)
 model = SpineSegmentationNet()
 model = model.to(device)
