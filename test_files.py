@@ -37,26 +37,20 @@ def create_scene_with_camera(camera, rotation_matrix, mesh):
     return scene
 
 
-def pack_rgba_to_float32(rgb):
-    # Ensure the input is shaped as expected (n, 3) for RGB values
-    print(rgb.ndim)
-    assert rgb.shape[0] == 3, "Input array must be n by 3 for RGB values."
+def pack_rgb_to_float(color):
+    # Ensure the arguments are within the 8-bit range [0, 255]
+    r = color[0]
+    g = color[1]
+    b = color[2]
+    r = np.clip(r, 0, 255)
+    g = np.clip(g, 0, 255)
+    b = np.clip(b, 0, 255)
 
-    # Convert the RGB numpy array into a bytes object
-    rgb_bytes = rgb.tobytes()
+    # Shift the bits of each color into the correct position and combine them
+    packed = r << 16 | g << 8 | b
 
-    # Calculate the number of floats that the byte array will unpack into
-    num_floats = len(rgb_bytes) // 4
-
-    # Convert these bytes back into float32 values; this assumes that the
-    # missing byte (from the lack of alpha channel) will simply be zeroed out,
-    # which is a typical approach.
-    # WARNING: This step assumes that the byte order in the original packing
-    # was such that the missing alpha byte is the last of the four bytes.
-    # If this order is not correct, the resulting float32 values will be incorrect.
-    packed_floats = np.frombuffer(rgb_bytes, dtype=np.float32, count=num_floats)
-
-    return packed_floats
+    # Use a view to reinterpret the integer bits as a float
+    return np.asarray(packed, dtype=np.uint32).view(np.float32)
 
 
 def process_and_save_pointcloud(pcd, mask_image, colors, filename):
@@ -72,22 +66,32 @@ def process_and_save_pointcloud(pcd, mask_image, colors, filename):
     - pcd: The point cloud with applied color.
     """
     numpy_array = pcd.get_data()
-    numpy_array = np.asarray(numpy_array)
     # Iterate over each mask and apply the corresponding color.
     for i in range(5):
-        color = pack_rgba_to_float32(colors[i])
-        print(color)
+        mask_all_zero = np.all(mask_image[i] == 0, axis=2)
+        f_indices = np.argwhere(mask_all_zero)
+        for j, k in f_indices:
+            rgba = numpy_array[j][k][:]
+            rgba[3] = 0 # Assign new RGB values while preserving the alpha channel.
+            numpy_array[j][k][:] = rgba
+    for i in range(5):
+        color = pack_rgb_to_float(colors[i])
         mask_all_zero = np.all(mask_image[i] == 0, axis=2)
         mask_all_zero = ~mask_all_zero
         indices = np.argwhere(mask_all_zero)
-
         for j, k in indices:
             rgba = numpy_array[j][k][:]
-            rgba[:3] = color  # Assign new RGB values while preserving the alpha channel.
+            rgba[3] = color # Assign new RGB values while preserving the alpha channel.
             numpy_array[j][k][:] = rgba
-    print('done')
-    # Convert numpy_array to Open3D PointCloud object (assuming numpy_array contains point cloud data)
-    pcd.write(filename)
+
+    mask = ~np.isnan(numpy_array).any(axis=2)
+    filtered_points = numpy_array[mask]
+    xyz = filtered_points[:, :3].astype(np.float32)
+    rgb = np.frombuffer(np.float32(filtered_points[:, 3]).tobytes(), np.uint8).reshape(-1, 4)[:, :3] / 255.0
+    pcd_downs= o3d.geometry.PointCloud()
+    pcd_downs.points = o3d.utility.Vector3dVector(xyz)
+    pcd_downs.colors = o3d.utility.Vector3dVector(rgb)
+    success = o3d.io.write_point_cloud(filename, pcd_downs)
 
 
 def create_rotation_matrix():
@@ -251,8 +255,8 @@ for specimen, camera_num in product(specimens, camera_nums):
                 if not os.path.exists(save_data_dir):
                     os.makedirs(save_data_dir)
 
-                image.write(os.path.join(save_data_dir, 'image.png'))
-                depth.write(os.path.join(save_data_dir, 'depth.png'))
+                image.write(os.path.join(save_data_dir, f'image_frame{cur_frame}.png'))
+                depth.write(os.path.join(save_data_dir, f'depth_frame{cur_frame}.png'))
 
                 # Read and transform vertebrae
                 vertebrae = []
@@ -267,7 +271,6 @@ for specimen, camera_num in product(specimens, camera_nums):
                 # spine = vertebra[0] + vertebra[1] + vertebra[2] + vertebra[3] + vertebra[4]
                 R = zed_pose.get_rotation_matrix(sl.Rotation()).r.T
                 t = zed_pose.get_translation(sl.Translation()).get()
-                print(R)
                 # Create the 4x4 extrinsics transformation matrix
                 extrinsics_matrix = np.identity(4)
                 extrinsics_matrix[:3, :3] = R
@@ -285,8 +288,8 @@ for specimen, camera_num in product(specimens, camera_nums):
                                                           zfar=2000)
                 mesh = []
                 for i, vert in enumerate(vertebrae):
-                    o3d.io.write_triangle_mesh(os.path.join(save_data_dir, f"transformed_vertebra{i}.stl"), vert)
-                    mask_stl = trimesh.load(os.path.join(save_data_dir, f"transformed_vertebra{i}.stl"))
+                    o3d.io.write_triangle_mesh(os.path.join(save_data_dir, f"transformed_vertebra{i}_frame{cur_frame}.stl"), vert)
+                    mask_stl = trimesh.load(os.path.join(save_data_dir, f"transformed_vertebra{i}_frame{cur_frame}.stl"))
                     mesh.append(pyrender.Mesh.from_trimesh(mask_stl))
 
                 # Create rotation matrix
@@ -298,18 +301,17 @@ for specimen, camera_num in product(specimens, camera_nums):
 
                 # Render scenes and save depth images
                 for i, (renderer, scene) in enumerate(zip(renderers, scenes)):
-                    render_scene_and_save_depth(renderers[0], scene, save_data_dir, f"mask{i + 1}")
+                    render_scene_and_save_depth(renderers[0], scene, save_data_dir, f"mask{i + 1}_frame{cur_frame}")
 
-                mask_image1 = cv2.imread(os.path.join(save_data_dir, "mask1.png"))
-                mask_image2 = cv2.imread(os.path.join(save_data_dir, "mask2.png"))
-                mask_image3 = cv2.imread(os.path.join(save_data_dir, "mask3.png"))
-                mask_image4 = cv2.imread(os.path.join(save_data_dir, "mask4.png"))
-                mask_image5 = cv2.imread(os.path.join(save_data_dir, "mask5.png"))
+                mask_image1 = cv2.imread(os.path.join(save_data_dir, f"mask1_frame{cur_frame}.png"))
+                mask_image2 = cv2.imread(os.path.join(save_data_dir, f"mask2_frame{cur_frame}.png"))
+                mask_image3 = cv2.imread(os.path.join(save_data_dir, f"mask3_frame{cur_frame}.png"))
+                mask_image4 = cv2.imread(os.path.join(save_data_dir, f"mask4_frame{cur_frame}.png"))
+                mask_image5 = cv2.imread(os.path.join(save_data_dir, f"mask5_frame{cur_frame}.png"))
 
                 mask_images = [mask_image1, mask_image2, mask_image3, mask_image4, mask_image5]
                 # Coloring point clouds
-                colors = np.array([[255, 180, 0], [255, 0, 0], [0, 255, 0], [0, 0, 255], [0, 255, 255]])
-
+                colors = np.array([[255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 0], [255, 0, 255]])
                 process_and_save_pointcloud(pcd, mask_images, colors, filename)
                 pcd = o3d.io.read_point_cloud(filename=filename)
-                o3d.visualization.draw_geometries([pcd])
+                #o3d.visualization.draw_geometries([pcd])
