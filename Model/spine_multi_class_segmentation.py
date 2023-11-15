@@ -1,9 +1,9 @@
 import torch.nn as nn
 import torch.nn.functional as F
-from utils import PointNetSetAbstractionMsg,PointNetFeaturePropagation, PointNetSetAbstraction
+from Model.utils import PointNetSetAbstractionMsg,PointNetFeaturePropagation, PointNetSetAbstraction
 
 class FastNet(nn.Module):
-    def __init__(self, num_classes):
+    def __init__(self, num_classes=6):
         super(FastNet, self).__init__()
 
         self.sa1 = PointNetSetAbstractionMsg(512, [0.1, 0.2, 0.4], [32, 64, 128], 3,
