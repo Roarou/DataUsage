@@ -27,12 +27,12 @@ def train(model, train_loader, optimizer, epoch, writer):
         data, target = data.to(device), target.to(device).long()
         optimizer.zero_grad()
         output, _ = model(data)
+        print(output.size())
         loss = criterion(output, target)
         loss.backward()
         optimizer.step()
         total_loss += loss.item()
         progress_bar.set_postfix({'loss': total_loss / (batch_idx + 1)})
-        print(output)
         predictions = torch.argmax(output, dim=1)
         metrics = calculate_metrics(predictions, target)
         writer.add_scalar('Training loss', total_loss / (batch_idx + 1), epoch)
@@ -91,9 +91,17 @@ if __name__ == '__main__':
     print(f'loading {time.time() - tt}')
     # TensorBoard Writer
     writer = SummaryWriter(log_dir='logs_segmentation')
+    try:
+        checkpoint = torch.load('segmentation_multi\model_1_epoch.pth')
+        start_epoch = checkpoint['epoch']
+        model.load_state_dict(checkpoint['model_state_dict'])
+        print('Use pretrain model')
+    except:
+        print('No existing model, starting training from scratch...')
+        start_epoch = 0
 
     best_test_loss = float('inf')
-    for epoch in range(max_epochs):
+    for epoch in range(start_epoch, max_epochs):
         epoch = epoch + 1
         train(model, train_loader, optimizer, epoch, writer)
         validation_loss = test(model, validation_loader, epoch, writer, mode='Validation')
@@ -107,7 +115,7 @@ if __name__ == '__main__':
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'loss': validation_loss,
-            }, f'segmentation_multi\model_1_epoch_{epoch}.pth')
+            }, f'segmentation_multi\model_1_epoch.pth')
             wait = 0  # Reset the waiting counter if there is an improvement
         else:
             wait += 1
@@ -115,7 +123,7 @@ if __name__ == '__main__':
                 print("Early stopping")
                 break
     # reload the best model here before testing if you want to use the best weights
-    model.load_state_dict(best_model_weights)
+    model.load_state_dict('segmentation_multi\model_1_epoch.pth')
     test_loss = test(model, test_loader, epoch, writer)
     print(f'Test loss: {test_loss}')
     writer.close()

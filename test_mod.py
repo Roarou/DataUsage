@@ -5,6 +5,7 @@ import numpy as np
 import open3d as o3d
 from Model.load_dataset_multi import normalize_point_cloud
 import copy
+import pandas as pd
 
 colors = {
     (1, 0, 0),  # L1
@@ -13,6 +14,8 @@ colors = {
     (0, 1, 1),  # L4
     (1, 0, 1)
 }
+
+
 def map_label_to_color(color):
     mapping = {
         0: [1, 0, 0],  # L1
@@ -26,14 +29,64 @@ def map_label_to_color(color):
     return res  # -1 for any unexpected colors
 
 
-# Define the path to your model's .pth file
-model_path = r'C:\Users\cheg\PycharmProjects\DataUsage\log\sem_seg\2023-11-15_02-34\checkpoints\best_model.pth'
-file = 'Pointcloud_0_spec_Specimen_2_vid_0_Recording0.pcd'
-path = r'L:\Pointcloud'
+def create_transformation_matrix(df_row):
+    """
+    Creates a transformation matrix from a DataFrame row containing rotation and translation data.
 
+    :param df_row: A Pandas Series with rotation matrix R and translation vector T components.
+    :return: A 4x4 NumPy array representing the transformation matrix.
+    """
+    # Extract the rotation and translation values to construct the transformation matrix
+    return np.array([
+        [df_row["R00"], df_row["R01"], df_row["R02"], df_row["T0"]],
+        [df_row["R10"], df_row["R11"], df_row["R12"], df_row["T1"]],
+        [df_row["R20"], df_row["R21"], df_row["R22"], df_row["T2"]],
+        [0, 0, 0, 1]  # The bottom row of a transformation matrix is always [0, 0, 0, 1]
+    ])
+
+
+def read_and_transform_vertebra(base_path, specimen, vertebra_name, transformation):
+    """
+    Reads a vertebra model from an STL file, computes its vertex normals, and applies a transformation.
+
+    :param base_path: The base path to the specimen data.
+    :param specimen: The specimen identifier.
+    :param vertebra_name: The name of the vertebra to be transformed.
+    :param transformation: The transformation matrix to be applied.
+    :return: The transformed vertebra mesh.
+    """
+    # Read the STL file into an Open3D triangle mesh object
+    vertebra = o3d.io.read_triangle_mesh(os.path.join(base_path, specimen, "STL", f"{vertebra_name}.stl"))
+    # Compute the normals for the vertices of the mesh
+    vertebra.compute_vertex_normals()
+    # Apply the transformation to the vertebra mesh
+    vertebra.transform(transformation)
+    return vertebra
+
+
+# Define the path to your model's .pth file
+cur_frame = 0
+model_path = r'C:\Users\cheg\PycharmProjects\DataUsage\log\sem_seg\2023-11-15_02-34\checkpoints\best_model.pth'
+specimen = "Specimen_2"
+file = f'Pointcloud_{cur_frame}_spec_{specimen}_vid_0_Recording0.pcd'
+path = r'L:\Pointcloud'
+SOURCE_DIR = r"G:\SpineDepth"
+tracking_file = r'G:\SpineDepth\Specimen_2\Recordings\Recording0\Poses_0.txt'
+df = pd.read_csv(tracking_file, sep=',', header=None,
+                 names=["R00", "R01", "R02", "T0", "R10", "R11", "R12", "T1", "R20", "R21", "R22", "T2",
+                        "R30",
+                        "R31", "R33", "T3"])
 path = os.path.join(path, file)
 # Recreate the same mode l architecture as was used during training
 model = FastNet()  # Replace with your actual model
+# Read and transform vertebrae
+vertebrae = []
+
+for i in range(5):
+    df_row = df.iloc[5 * cur_frame + i]
+    transformation_matrix = create_transformation_matrix(df_row)
+    vertebra = read_and_transform_vertebra(SOURCE_DIR, specimen, f"L{i + 1}", transformation_matrix)
+    vertebrae.append(vertebra)
 
 # Check if GPU is available
 if torch.cuda.is_available():
@@ -58,9 +111,6 @@ nb = len(input)
 sampled_indices = np.random.choice(nb, 100000, replace=False)
 point = input[sampled_indices]
 down_col = input_col[sampled_indices]
-
-
-
 
 downscale = copy.deepcopy(point)
 downscale = normalize_point_cloud(downscale, path)
@@ -111,15 +161,15 @@ for i, color in enumerate(colors):
     shift = max_bound[0] - min_bound[0] + extra_space
     pcd_or.paint_uniform_color([0.5, 0.5, 0.5])
 
-
-    if i== 1:
+    if i == 1:
         i = 4
     if i == 2:
         i = 1
-    if i== 3:
+    if i == 3:
         i = 2
-    if i== 4:
+    if i == 4:
         i = 3
+
     L1_col = predictions[idx[i]]
     L1_point = point[idx[i]]
     pcd_modified = o3d.geometry.PointCloud()
@@ -127,13 +177,13 @@ for i, color in enumerate(colors):
     pcd_modified.colors = o3d.utility.Vector3dVector(L1_col)
 
     pcd_f = o3d.geometry.PointCloud()
-    pcd_f  = pcd_modified + pcd_or
+    pcd_f = pcd_modified + pcd_or
 
     # Translate the second point cloud
     # pcd_modified.translate((shift, 0, 0))
-    o3d.visualization.draw_geometries([pcd_modified, pcd_or])
+    o3d.visualization.draw_geometries([pcd_modified, vertebrae[i]])
     curr_dir = os.getcwd()
-    filename = f'L{i+1}_fused.pcd'
+    filename = f'L{i + 1}_fused.pcd'
     final_path = os.path.join(curr_dir, filename)
     SUCCESS = o3d.io.write_point_cloud(final_path, pcd_f)
 

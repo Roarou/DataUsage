@@ -6,7 +6,7 @@ source_base_path = 'J:'
 destination_base_path = 'G:\SpineDepth'
 
 # Loop through each Specimen_{I}
-for i in range(2, 6):
+for i in range(10, 11):
     specimen_folder = f"Specimen_{i}"
     recordings_path = os.path.join(source_base_path, specimen_folder)
 
@@ -33,7 +33,7 @@ for i in range(2, 6):
 
         try:
             print('Deleting folder')
-            shutil.rmtree(path)
+            #shutil.rmtree(path)
             print(f"Folder at path {path} has been successfully deleted.")
         except Exception as e:
             print(f"An error occurred while deleting the folder: {str(e)}")
