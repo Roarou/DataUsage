@@ -2,7 +2,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
 from torch.utils.data import DataLoader
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import TensorBoardLogger
-from Model.load_dataset import PointcloudDataset  # Import your custom dataset class
+from Model.pointnet_binary.load_dataset import PointcloudDataset  # Import your custom dataset class
 from Model.get_hyperparameters.lr_spine_segmentation_net import PointCloudModule
 
 # Define the paths and parameters

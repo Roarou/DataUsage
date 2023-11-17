@@ -4,6 +4,8 @@ import numpy as np
 from torch.utils.data import Dataset
 from sklearn.model_selection import train_test_split
 import torch
+from collections import Counter
+
 from tqdm import tqdm
 
 
@@ -28,18 +30,21 @@ def normalize_point_cloud(points, filepath=None):
 
 def map_color_to_label(color):
     mapping = {
-        (1, 0, 0): [1,0,0,0,0,0],  # L1
-        (0, 1, 0): [0,1,0,0,0,0],  # L2
-        (0, 0, 1): [0,0,1,0,0,0],  # L3
-        (1, 1, 0): [0,0,0,1,0,0],  # L4
-        (1, 0, 1): [0,0,0,0,1,0],  # L5
-        (0, 0, 0): [0,0,0,0,0,1]  # Non-spine
+        (1, 0, 0): 0,  # L1
+        (0, 1, 0): 1,  # L2
+        (0, 0, 1): 2,  # L3
+        (0, 1, 1): 3,  # L4
+        (1, 0, 1): 4,  # L5
+        (0, 0, 0): 5  # Non-spine
     }
-    return mapping.get(tuple(color) , [0,0,0,0,0,0])  # -1 for any unexpected colors
+    res = mapping.get(tuple(color), -1)
+    if res == -1:
+        print(f'test {color}')
+    return  res # -1 for any unexpected colors
 
 
 class PointcloudDataset(Dataset):
-    def __init__(self, base_path=r'L:\groundtruth_labeled', test_validation_path=r'L:\groundtruth',
+    def __init__(self, base_path=r'L:\Pointcloud', test_validation_path=r'L:\PointcloudVal',
                  split='train', test_size=0.2, val_size=0.2,
                  random_state=42, num_points=340000):
         """
@@ -61,15 +66,34 @@ class PointcloudDataset(Dataset):
         # train_dirs, test_dirs = train_test_split(self.file_list, test_size=test_size, random_state=random_state)
         # train_dirs, val_dirs = train_test_split(train_dirs, test_size=val_size, random_state=random_state)
         train_dirs = self.file_list
-        test_dirs, val_dirs = train_test_split(self.file_test_val, test_size=val_size, random_state=random_state)
+        # test_dirs, val_dirs = train_test_split(self.file_test_val, test_size=val_size, random_state=random_state)
+        val_dirs = self.file_test_val
         if split == 'train':
             self.specimen_dirs = train_dirs
-        elif split == 'val':
+        elif split == 'val' or split == 'tes':
             self.specimen_dirs = val_dirs
-        elif split == 'test':
-            self.specimen_dirs = test_dirs
         else:
             raise ValueError("Invalid split mode. Use 'train', 'val', or 'test'.")
+        """
+        labelweights = np.zeros(6)
+        for file in tqdm(self.file_list, total=len(self.file_list)):
+            file = os.path.join(base_path,file)
+            pcd = o3d.io.read_point_cloud(file)
+            colors = np.asarray(pcd.colors)
+            labels = np.array([map_color_to_label(c) for c in colors])
+            L1 = np.sum(np.all(labels == 0, axis=0))
+            L2 = np.sum(np.all(labels == 1, axis=0))
+            L3 = np.sum(np.all(labels == 2, axis=0))
+            L4 = np.sum(np.all(labels == 3, axis=0))
+            L5 = np.sum(np.all(labels == 4, axis=0))
+            NS = np.sum(np.all(labels == 5, axis=0))
+            tmp = [L1, L2, L3, L4, L5, NS]
+            labelweights+= tmp
+        labelweights = labelweights.astype(np.float32)
+        labelweights = labelweights / np.sum(labelweights)
+        self.labelweights = np.power(np.amax(labelweights) / labelweights, 1 / 3.0)
+        print(self.labelweights)
+        """
 
     def __len__(self):
         """Returns the number of specimens in the dataset."""
@@ -91,20 +115,23 @@ class PointcloudDataset(Dataset):
 
         input_pcd = o3d.io.read_point_cloud(file_path, remove_nan_points=True,
                                             remove_infinite_points=True)
-
+        # print(filename)
         # Normalize input data
         input = np.asarray(input_pcd.points)
         colors = np.asarray(input_pcd.colors)
-        labels = np.array([map_color_to_label(c) for c in colors])
-        count = np.sum(np.all(labels == [0, 0, 0, 0, 0, 0], axis=0))
-        if count > 0:
-            print(f"Vector appears {count} times in a list of length {len(labels)}.")
-            print(f"Warning: Unexpected color detected in file: {filename}")
+        labels = colors
+
         if len(input) > self.target_num_points:
             sampled_indices = np.random.choice(len(input), self.target_num_points, replace=False)
             input = input[sampled_indices]
-            labels = labels[sampled_indices]
-
+            labels = colors[sampled_indices]
+        labels = np.array([map_color_to_label(c) for c in labels])
+        L1 = np.sum(np.all(labels == 1))
+        frequency = Counter(labels)
+        # print(frequency[5])
+        if L1 > 0:
+            print(f"Vector appears {L1} times in a list of length {len(labels)}.")
+            print(f"Warning: Unexpected color detected in file: {filename}")
         normalized_input = normalize_point_cloud(input, file_path)
 
         input_data = torch.tensor(normalized_input, dtype=torch.float32)
