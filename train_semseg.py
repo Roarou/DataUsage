@@ -1,6 +1,6 @@
 import argparse
 import os
-from Model.load_dataset_multi import PointcloudDataset
+from Model.pointnet_multi.load_dataset_multi import PointcloudDataset
 import torch
 import datetime
 import logging
@@ -10,7 +10,6 @@ import importlib
 import shutil
 from tqdm import tqdm
 import numpy as np
-import time
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = BASE_DIR
@@ -31,7 +30,7 @@ def inplace_relu(m):
 def parse_args():
     parser = argparse.ArgumentParser('Model')
     parser.add_argument('--model', type=str, default='spine_multi_class_segmentation', help='model name [default: pointnet_sem_seg]')
-    parser.add_argument('--batch_size', type=int, default=20, help='Batch Size during training [default: 16]')
+    parser.add_argument('--batch_size', type=int, default=16, help='Batch Size during training [default: 16]')
     parser.add_argument('--epoch', default=50, type=int, help='Epoch to run [default: 32]')
     parser.add_argument('--learning_rate', default=0.001, type=float, help='Initial learning rate [default: 0.001]')
     parser.add_argument('--gpu', type=str, default='0', help='GPU to use [default: GPU 0]')
@@ -107,7 +106,7 @@ def main(args):
     shutil.copy('Model/%s.py' % args.model, str(experiment_dir))
     shutil.copy('Model/utils.py', str(experiment_dir))
 
-    classifier = MODEL.FastNet(NUM_CLASSES).cuda()
+    classifier = MODEL.SpineSegmentationNet(NUM_CLASSES).cuda()
     criterion = torch.nn.NLLLoss(weight=weights)
     classifier.apply(inplace_relu)
 

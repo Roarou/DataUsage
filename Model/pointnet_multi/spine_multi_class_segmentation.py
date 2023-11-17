@@ -48,7 +48,7 @@ class FastNet(nn.Module):
         x = x.permute(0, 2, 1)
         return x, l3_points
 class SpineSegmentationNet(nn.Module):
-    def __init__(self, num_classes):
+    def __init__(self, num_classes=6):
         super(SpineSegmentationNet, self).__init__()
 
         self.sa1 = PointNetSetAbstractionMsg(1024, [0.05, 0.1], [16, 32], 3, [[16, 16, 32], [32, 32, 64]])

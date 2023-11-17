@@ -4,8 +4,8 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
-from Model.spine_multi_class_segmentation import SpineSegmentationNet
-from Model.load_dataset_multi import PointcloudDataset  # Replace with the proper file name
+from Model.pointnet_multi.spine_multi_class_segmentation import SpineSegmentationNet
+from Model.pointnet_multi.load_dataset_multi import PointcloudDataset  # Replace with the proper file name
 from Model.get_metrics import calculate_metrics
 import time
 
@@ -90,9 +90,9 @@ if __name__ == '__main__':
     validation_loader = DataLoader(validation_dataset, batch_size=batch)
     print(f'loading {time.time() - tt}')
     # TensorBoard Writer
-    writer = SummaryWriter(log_dir='logs_segmentation')
+    writer = SummaryWriter(log_dir='../logs_segmentation')
     try:
-        checkpoint = torch.load('segmentation_multi\model_1_epoch.pth')
+        checkpoint = torch.load('../segmentation_multi/model_1_epoch.pth')
         start_epoch = checkpoint['epoch']
         model.load_state_dict(checkpoint['model_state_dict'])
         print('Use pretrain model')
@@ -115,7 +115,7 @@ if __name__ == '__main__':
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'loss': validation_loss,
-            }, f'segmentation_multi\model_1_epoch.pth')
+            }, f'../segmentation_multi/model_1_epoch.pth')
             wait = 0  # Reset the waiting counter if there is an improvement
         else:
             wait += 1

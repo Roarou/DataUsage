@@ -1,11 +1,11 @@
 import copy
-from Model.load_dataset import normalize_point_cloud
+from Model.pointnet_binary.load_dataset import normalize_point_cloud
 import pyzed.sl as sl
 import numpy as np
 import open3d as o3d
 import sys
 import torch
-from Model.spine_segmentation import SpineSegmentationNet
+from Model.pointnet_multi.spine_segmentation import SpineSegmentationNet
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 model_path = r'/Model/lr_0,0001_all_data/model_dic_epoch_12.pt'
 dic = torch.load(model_path)

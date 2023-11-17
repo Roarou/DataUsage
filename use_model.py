@@ -1,6 +1,6 @@
 import torch
-from Model.spine_segmentation import SpineSegmentationNet
-from Model.load_dataset import normalize_point_cloud
+from Model.pointnet_multi.spine_segmentation import SpineSegmentationNet
+from Model.pointnet_binary.load_dataset import normalize_point_cloud
 import open3d as o3d
 import numpy as np
 import time

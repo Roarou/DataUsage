@@ -1,9 +1,9 @@
 import torch
-from Model.spine_multi_class_segmentation import FastNet
+from Model.pointnet_multi.spine_multi_class_segmentation import FastNet
 import os
 import numpy as np
 import open3d as o3d
-from Model.load_dataset_multi import normalize_point_cloud
+from Model.pointnet_multi.load_dataset_multi import normalize_point_cloud
 import copy
 import pandas as pd
 
@@ -64,131 +64,238 @@ def read_and_transform_vertebra(base_path, specimen, vertebra_name, transformati
     return vertebra
 
 
-# Define the path to your model's .pth file
-cur_frame = 0
-model_path = r'C:\Users\cheg\PycharmProjects\DataUsage\log\sem_seg\2023-11-15_02-34\checkpoints\best_model.pth'
-specimen = "Specimen_2"
-file = f'Pointcloud_{cur_frame}_spec_{specimen}_vid_0_Recording0.pcd'
-path = r'L:\Pointcloud'
-SOURCE_DIR = r"G:\SpineDepth"
-tracking_file = r'G:\SpineDepth\Specimen_2\Recordings\Recording0\Poses_0.txt'
-df = pd.read_csv(tracking_file, sep=',', header=None,
-                 names=["R00", "R01", "R02", "T0", "R10", "R11", "R12", "T1", "R20", "R21", "R22", "T2",
-                        "R30",
-                        "R31", "R33", "T3"])
-path = os.path.join(path, file)
-# Recreate the same mode l architecture as was used during training
-model = FastNet()  # Replace with your actual model
-# Read and transform vertebrae
-vertebrae = []
-
-for i in range(5):
-    df_row = df.iloc[5 * cur_frame + i]
-    transformation_matrix = create_transformation_matrix(df_row)
-    vertebra = read_and_transform_vertebra(SOURCE_DIR, specimen, f"L{i + 1}", transformation_matrix)
-    vertebrae.append(vertebra)
-
 # Check if GPU is available
 if torch.cuda.is_available():
     device = torch.device('cuda')
 else:
     device = torch.device('cpu')
 
-# Load the saved state dictionary
-state_dict = torch.load(model_path)
 
-# Apply the state dictionary to the mode
-model.load_state_dict(state_dict['model_state_dict'])
-
-# Set the model to evaluation mode
-model.eval()
-
-pcd = o3d.io.read_point_cloud(path)
-input = np.asarray(pcd.points)
-input_col = np.asarray(pcd.colors)
-nb = len(input)
-
-sampled_indices = np.random.choice(nb, 100000, replace=False)
-point = input[sampled_indices]
-down_col = input_col[sampled_indices]
-
-downscale = copy.deepcopy(point)
-downscale = normalize_point_cloud(downscale, path)
-downscale = torch.tensor(downscale, dtype=torch.float32)
-downscale = downscale.unsqueeze(0)
-downscale = downscale.float()
-# o3d.visualization.draw_geometries([pcd])
-downscale = downscale.transpose(2, 1)
-with torch.no_grad():
-    predictions, _ = model(downscale)
-
-predictions = predictions.cpu()[0]
-
-predictions = torch.argmax(predictions, dim=-1).numpy()
-
-# Convert the list to a NumPy array
-my_array = np.array(predictions)
-
-# Find indices where the value is 1
-
-L1 = np.where(my_array == 0)[0]
-L2 = np.where(my_array == 1)[0]
-L3 = np.where(my_array == 2)[0]
-L4 = np.where(my_array == 3)[0]
-L5 = np.where(my_array == 4)[0]
-idx = [L1, L2, L3, L4, L5]
-predictions = np.array([map_label_to_color(c) for c in predictions])
-
-for i, color in enumerate(colors):
-    matches = np.all(down_col == color, axis=1)
-
-    # Find indices where matches are True
-    L1 = np.where(matches)[0]
-    L1_col = down_col[L1]
-    L1_point = point[L1]
-    pcd_or = o3d.geometry.PointCloud()
-    pcd_or.points = o3d.utility.Vector3dVector(L1_point)
-    pcd_or.colors = o3d.utility.Vector3dVector(L1_col)
-    print(len(pcd_or.points))
-    # Compute the bounds of the first point cloud
-    min_bound = pcd_or.get_min_bound()
-    max_bound = pcd_or.get_max_bound()
-
-    # Calculate the amount to translate
-    extra_space = 10
-    # Here, we shift the second point cloud to the right of the first
-    # You might want to add some extra space between them
-    shift = max_bound[0] - min_bound[0] + extra_space
-    pcd_or.paint_uniform_color([0.5, 0.5, 0.5])
-
-    if i == 1:
-        i = 4
-    if i == 2:
-        i = 1
-    if i == 3:
-        i = 2
-    if i == 4:
-        i = 3
-
-    L1_col = predictions[idx[i]]
-    L1_point = point[idx[i]]
-    pcd_modified = o3d.geometry.PointCloud()
-    pcd_modified.points = o3d.utility.Vector3dVector(L1_point)
-    pcd_modified.colors = o3d.utility.Vector3dVector(L1_col)
-
-    pcd_f = o3d.geometry.PointCloud()
-    pcd_f = pcd_modified + pcd_or
-
-    # Translate the second point cloud
-    # pcd_modified.translate((shift, 0, 0))
-    o3d.visualization.draw_geometries([pcd_modified, vertebrae[i]])
-    curr_dir = os.getcwd()
-    filename = f'L{i + 1}_fused.pcd'
-    final_path = os.path.join(curr_dir, filename)
-    SUCCESS = o3d.io.write_point_cloud(final_path, pcd_f)
-
-# pcd_modified = o3d.geometry.PointCloud()
-# pcd_modified.points = o3d.utility.Vector3dVector(point)
-# pcd_modified.colors = o3d.utility.Vector3dVector(predictions)
 #
-# o3d.visualization.draw_geometries([pcd_modified])
+
+
+def load_model(model_path):
+    """
+    Load the model from the given path.
+    """
+    model = FastNet()
+    state_dict = torch.load(model_path)
+    model.load_state_dict(state_dict['model_state_dict'])
+    return model
+
+
+def process_point_cloud(path, nb_sample=100e3):
+    pcd = o3d.io.read_point_cloud(path)
+    input_points = np.asarray(pcd.points)
+    input_colors = np.asarray(pcd.colors)
+    sampled_indices = np.random.choice(len(input_points), nb_sample, replace=False)
+    point = input_points[sampled_indices]
+    down_col = input_colors[sampled_indices]
+    return point, down_col
+
+
+def load_and_process_data(model_path, source_dir, tracking_file, pcl_path, specimen, cur_frame, nb_sample=100e3):
+    """
+    Load and process the data required for point cloud visualization.
+    """
+    # Load the transformation matrix
+    df = pd.read_csv(tracking_file, sep=',', header=None,
+                     names=["R00", "R01", "R02", "T0", "R10", "R11", "R12", "T1", "R20", "R21", "R22", "T2",
+                            "R30", "R31", "R33", "T3"])
+    vertebrae = [read_and_transform_vertebra(source_dir, specimen, f"L{i + 1}",
+                                             create_transformation_matrix(df.iloc[5 * cur_frame + i]))
+                 for i in range(5)]
+
+    # Load model and point cloud
+    model = load_model(model_path)
+    model.eval()
+    point, down_col = process_point_cloud(pcl_path, nb_sample=nb_sample)
+
+    return model, vertebrae, point, down_col
+
+
+def predict_and_visualize(model, point, down_col, vertebrae, display_stl=True):
+    """
+    Perform predictions and visualize point cloud data.
+    """
+    downscale = process_downscale(point)
+    predictions = model_predict(model, downscale)
+    pcd_gt, pcd_pred = generate_point_clouds(predictions, point, down_col, vertebrae)
+
+    # Visualization
+    if display_stl:
+        visualize_point_clouds(pcd_gt, pcd_pred)
+    return pcd_gt, pcd_pred
+
+
+def create_individual_point_cloud(predictions, point, down_col, index):
+    """
+    Create individual point clouds for both original and predicted data.
+    """
+    # Create point cloud for original data
+    pcd_or = o3d.geometry.PointCloud()
+    pcd_or.points = o3d.utility.Vector3dVector(point)
+    pcd_or.colors = o3d.utility.Vector3dVector(down_col)
+
+    # Find indices for the current prediction label
+    label_indices = np.where(predictions == index)[0]
+
+    # Extract corresponding points and colors for predicted data
+    labeled_points = point[label_indices]
+    labeled_colors = down_col[label_indices]
+
+    # Create point cloud for predicted data
+    pcd_modified = o3d.geometry.PointCloud()
+    pcd_modified.points = o3d.utility.Vector3dVector(labeled_points)
+    pcd_modified.colors = o3d.utility.Vector3dVector(labeled_colors)
+    o3d.visualization.draw_geometries([pcd_modified])
+
+    return pcd_or, pcd_modified
+
+
+def generate_point_clouds(predictions, point, down_col, vertebrae):
+    """
+    Generate point clouds for ground truth and predictions.
+    """
+    # Generate point clouds
+    pcd_gt = []
+    pcd_pred = []
+    for i in range(5):
+        pcd_or, pcd_modified = create_individual_point_cloud(predictions, point, down_col, i)
+        pcd_gt.extend([pcd_or, vertebrae[i]])
+        pcd_pred.extend([pcd_modified, vertebrae[i]])
+    return pcd_gt, pcd_pred
+
+
+def process_downscale(point):
+    """
+    Process the point cloud data for downscaling.
+    """
+    # Processing steps
+    downscale = copy.deepcopy(point)
+    downscale = normalize_point_cloud(downscale)
+    downscale = torch.tensor(downscale, dtype=torch.float32).unsqueeze(0).float().transpose(2, 1)
+    return downscale
+
+
+def visualize_point_clouds(pcd_gt, pcd_pred):
+    """
+    Visualize the point clouds.
+    """
+    # Visualizing the point clouds
+    o3d.visualization.draw_geometries(pcd_gt)
+    o3d.visualization.draw_geometries(pcd_pred)
+    # pcd_modified = o3d.geometry.PointCloud()
+    # pcd_modified.points = o3d.utility.Vector3dVector(point)
+    # pcd_modified.colors = o3d.utility.Vector3dVector(predictions)
+    #
+    # o3d.visualization.draw_geometries([pcd_modified])
+
+
+def model_predict(model, downscale):
+    """
+    Perform model prediction.
+    """
+    with torch.no_grad():
+        predictions, _ = model(downscale)
+    predictions = torch.argmax(predictions.cpu()[0], dim=-1).numpy()
+    return predictions
+
+
+# Main execution function
+def main():
+    """
+    Main function to execute the process.
+    """
+    # Define file paths and model paths
+    model_path = r'C:\Users\cheg\PycharmProjects\DataUsage\log\sem_seg\2023-11-15_02-34\checkpoints\best_model.pth'
+    source_dir = r"G:\SpineDepth"
+    specimen = "Specimen_2"
+    cur_frame = 0
+    pcd_path = r'L:\Pointcloud\Pointcloud_{}_spec_{}_vid_0_Recording0.pcd'.format(cur_frame, specimen)
+    recording = 'Recording0'
+    camera_num = 0
+    tracking_file = os.path.join(source_dir, specimen, f"Recordings/{recording}/Poses_{camera_num}.txt")
+
+    # Load and process data
+    model, vertebrae, point, down_col = load_and_process_data(model_path, source_dir, tracking_file, pcd_path, specimen,
+                                                              cur_frame, nb_sample=100000)
+    # Perform prediction and visualization
+    GT, pred = predict_and_visualize(model, point, down_col, vertebrae)
+
+    try:
+
+        # Convert the list to a NumPy array
+        my_array = np.array(pred)
+
+        # Find indices where the value is 1
+
+        L1 = np.where(my_array == 0)[0]
+        L2 = np.where(my_array == 1)[0]
+        L3 = np.where(my_array == 2)[0]
+        L4 = np.where(my_array == 3)[0]
+        L5 = np.where(my_array == 4)[0]
+        idx = [L1, L2, L3, L4, L5]
+        predictions = np.array([map_label_to_color(c) for c in pred])
+        pcd_gt = []
+        pcd_pred = []
+        for i, color in enumerate(colors):
+            matches = np.all(down_col == color, axis=1)
+
+            # Find indices where matches are True
+            L1 = np.where(matches)[0]
+            L1_col = down_col[L1]
+            L1_point = point[L1]
+            pcd_or = o3d.geometry.PointCloud()
+            pcd_or.points = o3d.utility.Vector3dVector(L1_point)
+            pcd_or.colors = o3d.utility.Vector3dVector(L1_col)
+            print(len(pcd_or.points))
+            # Compute the bounds of the first point cloud
+            min_bound = pcd_or.get_min_bound()
+            max_bound = pcd_or.get_max_bound()
+
+            # Calculate the amount to translate
+            extra_space = 10
+            # Here, we shift the second point cloud to the right of the first
+            # You might want to add some extra space between them
+            shift = max_bound[0] - min_bound[0] + extra_space
+            # pcd_or.paint_uniform_color([0.5, 0.5, 0.5])
+
+            if i == 1:
+                i = 4
+            elif i == 2:
+                i = 1
+            elif i == 3:
+                i = 2
+            elif i == 4:
+                i = 3
+
+            L1_col = predictions[idx[i]]
+            L1_point = point[idx[i]]
+            pcd_modified = o3d.geometry.PointCloud()
+            pcd_modified.points = o3d.utility.Vector3dVector(L1_point)
+            pcd_modified.colors = o3d.utility.Vector3dVector(L1_col)
+
+            pcd_f = o3d.geometry.PointCloud()
+            pcd_f = pcd_modified + pcd_or
+            pcd_gt.append(pcd_or)
+            pcd_pred.append(pcd_modified)
+            pcd_gt.append(vertebrae[i])
+            pcd_pred.append(vertebrae[i])
+            # Translate the second point cloud
+            # pcd_modified.translate((shift, 0, 0))
+            o3d.visualization.draw_geometries([pcd_modified, vertebrae[i]])
+            curr_dir = os.getcwd()
+            filename = f'L{i + 1}_fused.pcd'
+            print(filename)
+            final_path = os.path.join(curr_dir, filename)
+            SUCCESS = o3d.io.write_point_cloud(final_path, pcd_f)
+
+
+
+    except FileNotFoundError as e:
+        print(f"Error: {e}")
+
+
+if __name__ == "__main__":
+    main()

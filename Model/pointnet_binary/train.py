@@ -4,8 +4,8 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
-from Model.spine_segmentation import SpineSegmentationNet
-from Model.load_dataset import PointcloudDataset  # Replace with the proper file name
+from Model.pointnet_multi.spine_segmentation import SpineSegmentationNet
+from Model.pointnet_binary.load_dataset import PointcloudDataset  # Replace with the proper file name
 from Model.get_metrics import calculate_metrics
 
 batch = 24
@@ -83,7 +83,7 @@ if __name__ == '__main__':
     validation_loader = DataLoader(validation_dataset, batch_size=batch)
 
     # TensorBoard Writer
-    writer = SummaryWriter(log_dir='logs_test')
+    writer = SummaryWriter(log_dir='../logs_test')
 
     best_test_loss = float('inf')
     for epoch in range(max_epochs):

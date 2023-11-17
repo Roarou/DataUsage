@@ -9,7 +9,7 @@ import pyzed.sl as sl
 import numpy as np
 import cv2
 import open3d as o3d
-
+import multiprocessing
 # Set the start time of the script execution for performance tracking.
 START_TIME = time.time()
 
@@ -18,9 +18,67 @@ SOURCE_DIR = r"G:\SpineDepth"
 
 # Define the destination directory for calibration settings required by the ZED camera SDK.
 CALIB_DEST_DIR = r'C:\\ProgramData\\Stereolabs\\settings'
+def check_single_camparam(strings_list):
+    """
+    Check if there's only one instance of 'CamParam' in the filenames in the given directory.
+
+    Parameters:
+        strings_list (list): A list of strings representing filenames in the directory.
+
+    Returns:
+        tuple: A tuple containing a boolean indicating whether there was only one 'CamParam'
+               and the last part of the first 'CamParam' string (if more than one).
+    """
+    camparam_count = 0  # Initialize the count of 'CamParam' occurrences
+    b = None  # Initialize a variable
+    for j, string in enumerate(strings_list):  # For each string in the list
+        if string.startswith('CamParam'):  # If the string starts with 'CamParam'
+            camparam_count += 1  # Increment the 'CamParam' count
+            if camparam_count == 1:  # If this is the first 'CamParam'
+                idx = j  # Save the index
+        if camparam_count > 1:  # If there are more than one 'CamParam'
+            _, _, b = strings_list[idx].split(
+                '_')  # Split the first 'CamParam' string on underscores and store the last part
+
+    return camparam_count == 1, b  # Return whether there was only one 'CamParam' and the last part of the first 'CamParam' string
 
 
-def create_scene_with_camera(camera, rotation_matrix, mesh):
+def process_config_files(config_file_path):
+    """
+    Process configuration files by copying them to the specified path.
+
+    Parameters:
+        config_file_path (str): Path of the configuration file to be copied.
+
+    Returns:
+        bool: True if the configuration file is successfully copied, False otherwise.
+    """
+
+    if not os.path.isfile(config_file_path):
+        print("Config file doesn't exist.")
+        return False
+    # Delete all files in path_b
+    for filename in os.listdir(CALIB_DEST_DIR):
+        file_path = os.path.join(CALIB_DEST_DIR, filename)
+        try:
+            if os.path.isfile(file_path):
+                os.unlink(file_path)
+                print(f'Deleted: {file_path}.')
+            elif os.path.isdir(file_path):
+                shutil.rmtree(file_path)
+        except Exception as e:
+            print(f'Failed to delete {file_path}. Reason: {e}')
+
+    # Copy the config file to path_b
+    try:
+        shutil.copy2(config_file_path, CALIB_DEST_DIR)
+        print(f'Copied {config_file_path} ')
+        return True
+    except PermissionError:
+        print(f'PermissionError: Could not copy {config_file_path} due to insufficient permissions.')
+        return False
+
+def create_scene_with_camera(camera, rotation_matrix, mesh, extrinsics_matrix):
     """
     Initialize a rendering scene and add a camera with a given pose.
 
@@ -32,7 +90,7 @@ def create_scene_with_camera(camera, rotation_matrix, mesh):
     - scene: The created scene with the camera added.
     """
     scene = pyrender.Scene()
-    scene.add(mesh, pose=extrinsics_matrix)
+    scene.add(mesh, pose= extrinsics_matrix)
     scene.add(camera, pose=rotation_matrix)
     return scene
 
@@ -92,6 +150,7 @@ def process_and_save_pointcloud(pcd, mask_image, colors, filename):
     pcd_downs.points = o3d.utility.Vector3dVector(xyz)
     pcd_downs.colors = o3d.utility.Vector3dVector(rgb)
     success = o3d.io.write_point_cloud(filename, pcd_downs)
+    return success
 
 
 def create_rotation_matrix():
@@ -157,7 +216,7 @@ def create_and_save_directory(base_path, specimen, recording, camera_num, cur_fr
     :return: The directory path where data will be saved.
     """
     # Build the directory path
-    save_data_dir = os.path.join(base_path, specimen, f"recording{recording}",
+    save_data_dir = os.path.join(base_path, specimen, recording,
                                  f"pointcloud_cam_{camera_num}_recording_{cur_frame}")
     print(f"Saving files to: {save_data_dir}")
     # Create the directory if it doesn't exist, with the option to not raise an error if it already exists
@@ -199,119 +258,138 @@ def create_transformation_matrix(df_row):
         [0, 0, 0, 1]  # The bottom row of a transformation matrix is always [0, 0, 0, 1]
     ])
 
+def main():
+    # Main code ["Specimen_1", "Specimen_2","Specimen_3",
+    specimens = [ "Specimen_4", "Specimen_5", "Specimen_6", "Specimen_7","Specimen_8", "Specimen_9", "Specimen_10"]
+    camera_nums = [0, 1]
+    for specimen, camera_num in product(specimens, camera_nums):
+        specimen_directory_path = os.path.join(SOURCE_DIR, specimen)
+        print(f"Processing specimen: {specimen}, camera: {camera_num}")
+        flag, b = check_single_camparam(os.listdir(specimen_directory_path))
+        list_dir = os.listdir(os.path.join(specimen_directory_path, 'Recordings'))
+        list_dir = sorted(list_dir, key=lambda record: int(record.split('Recording')[1]))
+        # Process each subdirectory in the 'Recordings' directory
+        for k, recording in enumerate(list_dir):
+            video_dir = os.path.join(SOURCE_DIR, specimen, f"Recordings/{recording}/Video_{camera_num}.svo")
+            print(video_dir)
+            conf_path = os.path.join(specimen_directory_path, 'Calib')
 
-# Main code
-specimens = ["Specimen_3", "Specimen_5", "Specimen_6", "Specimen_7", "Specimen_9", "Specimen_10"]
-camera_nums = [0, 1]
-runtime_parameters = sl.RuntimeParameters()
-start_time = time.time()
-for specimen, camera_num in product(specimens, camera_nums):
-    print(f"Processing specimen: {specimen}, camera: {camera_num}")
+            if not flag:
+                if k > int(b):  # If this subdirectory's index is greater than the last part of the first 'CamParam'
+                    conf_path = conf_path + '_b'  # Add '_b' to the configuration path
+                else:
+                    conf_path = conf_path + '_a'  # Add '_a' to the configuration path
+            print(conf_path)
 
-    recordings = len(os.listdir(os.path.join(SOURCE_DIR, specimen, "recordings")))
-    for recording in range(recordings):
-        video_dir = os.path.join(SOURCE_DIR, specimen, f"Recordings/Recording{recording}/Video_{camera_num}.svo")
-        calib_src_dir = os.path.join(SOURCE_DIR, specimen, "Calib")
-        shutil.copytree(calib_src_dir, CALIB_DEST_DIR, dirs_exist_ok=True)
+            if camera_num == 0:
+                calib_src_dir = os.path.join(conf_path, 'SN10027879.conf')
+            elif camera_num == 1:
+                calib_src_dir = os.path.join(conf_path, 'SN10028650.conf')
+            if not process_config_files(config_file_path=calib_src_dir):
+                print('Failed to process config files.')
+                return False
 
-        tracking_file = os.path.join(SOURCE_DIR, specimen, f"Recordings/Recording{recording}/Poses_{camera_num}.txt")
-        df = read_tracking_file(tracking_file)
 
-        input_type = sl.InputType()
-        input_type.set_from_svo_file(video_dir)
-        init_params = sl.InitParameters()
-        init = sl.InitParameters(input_t=input_type, svo_real_time_mode=False)
+            tracking_file = os.path.join(SOURCE_DIR, specimen, f"Recordings/{recording}/Poses_{camera_num}.txt")
+            df = read_tracking_file(tracking_file)
 
-        zed = sl.Camera()
-        status = zed.open(init)
-        if status != sl.ERROR_CODE.SUCCESS:
-            print(repr(status))
-            exit()
+            input_type = sl.InputType()
+            input_type.set_from_svo_file(video_dir)
+            init = sl.InitParameters(input_t=input_type, svo_real_time_mode=False, optional_settings_path=SOURCE_DIR)
 
-        runtime_parameters = sl.RuntimeParameters()
+            zed = sl.Camera()
+            status = zed.open(init)
+            if status != sl.ERROR_CODE.SUCCESS:
+                print(repr(status))
+                exit()
 
-        zed_pose = sl.Pose()
-        zed_sensors = sl.SensorsData()
-        calibration_params = zed.get_camera_information().camera_configuration.calibration_parameters
-        nb_frames = zed.get_svo_number_of_frames()
-        nb_frames = 100
-        cur_frame = 0
-        while cur_frame < nb_frames:
+            runtime_parameters = sl.RuntimeParameters()
 
-            if zed.grab(runtime_parameters) == sl.ERROR_CODE.SUCCESS:
-                image, depth = sl.Mat(), sl.Mat()
-                pc_mats = [sl.Mat() for _ in range(5)]
+            zed_pose = sl.Pose()
+            calibration_params = zed.get_camera_information().camera_configuration.calibration_parameters
+            nb_frames = zed.get_svo_number_of_frames()
+            nb_frames = 20
+            cur_frame = 0
+            # Prepare arguments for each frame
 
-                zed.retrieve_image(image, sl.VIEW.LEFT)
-                zed.retrieve_measure(depth, sl.MEASURE.DEPTH)
-                pcd = sl.Mat()
-                zed.retrieve_measure(pcd, sl.MEASURE.XYZRGBA)
+            while cur_frame < nb_frames:
 
-                save_data_dir = os.path.join(r"C:\Users\cheg\PycharmProjects\DataUsage", specimen,
-                                             "recording{}".format(recording),
-                                             "pointcloud_cam_{}_recording_{}".format(camera_num, cur_frame))
-                filename = f'L:\Pointcloud\Pointcloud_{cur_frame}_spec_{specimen}_vid_{camera_num}_recording_{recording}.pcd'
-                print("saving files to:{}".format(save_data_dir))
-                if not os.path.exists(save_data_dir):
-                    os.makedirs(save_data_dir)
+                if zed.grab(runtime_parameters) == sl.ERROR_CODE.SUCCESS:
+                    image, depth = sl.Mat(), sl.Mat()
 
-                image.write(os.path.join(save_data_dir, f'image_frame{cur_frame}.png'))
-                depth.write(os.path.join(save_data_dir, f'depth_frame{cur_frame}.png'))
+                    zed.retrieve_image(image, sl.VIEW.LEFT)
+                    zed.retrieve_measure(depth, sl.MEASURE.DEPTH)
+                    pcd = sl.Mat()
+                    zed.retrieve_measure(pcd, sl.MEASURE.XYZRGBA)
 
-                # Read and transform vertebrae
-                vertebrae = []
+                    save_data_dir = os.path.join(r"C:\Users\cheg\PycharmProjects\DataUsage", specimen,
+                                                 recording,
+                                                 "pointcloud_cam_{}_recording_{}".format(camera_num, cur_frame))
+                    filename = f'L:\Pointcloud\Pointcloud_{cur_frame}_spec_{specimen}_vid_{camera_num}_{recording}.pcd'
+                    print("saving files to:{}".format(save_data_dir))
+                    if not os.path.exists(save_data_dir):
+                        os.makedirs(save_data_dir)
 
-                for i in range(5):
-                    df_row = df.iloc[5 * cur_frame + i]
-                    transformation_matrix = create_transformation_matrix(df_row)
-                    vertebra = read_and_transform_vertebra(SOURCE_DIR, specimen, f"L{i + 1}", transformation_matrix)
-                    vertebrae.append(vertebra)
+                    image.write(os.path.join(save_data_dir, f'image_frame{cur_frame}.png'))
+                    depth.write(os.path.join(save_data_dir, f'depth_frame{cur_frame}.png'))
 
-                # Combine all vertebrae
-                # spine = vertebra[0] + vertebra[1] + vertebra[2] + vertebra[3] + vertebra[4]
-                R = zed_pose.get_rotation_matrix(sl.Rotation()).r.T
-                t = zed_pose.get_translation(sl.Translation()).get()
-                # Create the 4x4 extrinsics transformation matrix
-                extrinsics_matrix = np.identity(4)
-                extrinsics_matrix[:3, :3] = R
-                extrinsics_matrix[:3, 3] = t
-                camera_pose = np.array([
-                    [1, 0, 0, 0],
-                    [0, 1, 0, 0],
-                    [0, 0, 1, 0],
-                    [0.0, 0.0, 0.0, 1.0],
-                ])
+                    # Read and transform vertebrae
+                    vertebrae = []
 
-                left_camera_intrinsic = calibration_params.left_cam
-                camera = pyrender.camera.IntrinsicsCamera(left_camera_intrinsic.fx, left_camera_intrinsic.fy,
-                                                          left_camera_intrinsic.cx, left_camera_intrinsic.cy, znear=250,
-                                                          zfar=2000)
-                mesh = []
-                for i, vert in enumerate(vertebrae):
-                    o3d.io.write_triangle_mesh(os.path.join(save_data_dir, f"transformed_vertebra{i}_frame{cur_frame}.stl"), vert)
-                    mask_stl = trimesh.load(os.path.join(save_data_dir, f"transformed_vertebra{i}_frame{cur_frame}.stl"))
-                    mesh.append(pyrender.Mesh.from_trimesh(mask_stl))
+                    for i in range(5):
+                        df_row = df.iloc[5 * cur_frame + i]
+                        transformation_matrix = create_transformation_matrix(df_row)
+                        vertebra = read_and_transform_vertebra(SOURCE_DIR, specimen, f"L{i + 1}", transformation_matrix)
+                        vertebrae.append(vertebra)
 
-                # Create rotation matrix
-                rotation_matrix = create_rotation_matrix()
+                    # Combine all vertebrae
+                    # spine = vertebra[0] + vertebra[1] + vertebra[2] + vertebra[3] + vertebra[4]
+                    R = zed_pose.get_rotation_matrix(sl.Rotation()).r.T
+                    t = zed_pose.get_translation(sl.Translation()).get()
+                    # Create the 4x4 extrinsics transformation matrix
+                    extrinsics_matrix = np.identity(4)
+                    extrinsics_matrix[:3, :3] = R
+                    extrinsics_matrix[:3, 3] = t
+                    camera_pose = np.array([
+                        [1, 0, 0, 0],
+                        [0, 1, 0, 0],
+                        [0, 0, 1, 0],
+                        [0.0, 0.0, 0.0, 1.0],
+                    ])
 
-                # Create renderers and scenes
-                renderers = [pyrender.OffscreenRenderer(1920, 1080) for _ in range(5)]
-                scenes = [create_scene_with_camera(camera, rotation_matrix, mesh[i]) for i in range(5)]
+                    left_camera_intrinsic = calibration_params.left_cam
+                    camera = pyrender.camera.IntrinsicsCamera(left_camera_intrinsic.fx, left_camera_intrinsic.fy,
+                                                              left_camera_intrinsic.cx, left_camera_intrinsic.cy, znear=250,
+                                                              zfar=2000)
+                    mesh = []
+                    for i, vert in enumerate(vertebrae):
+                        o3d.io.write_triangle_mesh(os.path.join(save_data_dir, f"transformed_vertebra{i}_frame{cur_frame}.stl"), vert)
+                        mask_stl = trimesh.load(os.path.join(save_data_dir, f"transformed_vertebra{i}_frame{cur_frame}.stl"))
+                        mesh.append(pyrender.Mesh.from_trimesh(mask_stl))
 
-                # Render scenes and save depth images
-                for i, (renderer, scene) in enumerate(zip(renderers, scenes)):
-                    render_scene_and_save_depth(renderers[0], scene, save_data_dir, f"mask{i + 1}_frame{cur_frame}")
+                    # Create rotation matrix
+                    rotation_matrix = create_rotation_matrix()
 
-                mask_image1 = cv2.imread(os.path.join(save_data_dir, f"mask1_frame{cur_frame}.png"))
-                mask_image2 = cv2.imread(os.path.join(save_data_dir, f"mask2_frame{cur_frame}.png"))
-                mask_image3 = cv2.imread(os.path.join(save_data_dir, f"mask3_frame{cur_frame}.png"))
-                mask_image4 = cv2.imread(os.path.join(save_data_dir, f"mask4_frame{cur_frame}.png"))
-                mask_image5 = cv2.imread(os.path.join(save_data_dir, f"mask5_frame{cur_frame}.png"))
+                    # Create renderers and scenes
+                    renderers = [pyrender.OffscreenRenderer(1920, 1080) for _ in range(5)]
+                    scenes = [create_scene_with_camera(camera, rotation_matrix, mesh[i], extrinsics_matrix) for i in range(5)]
 
-                mask_images = [mask_image1, mask_image2, mask_image3, mask_image4, mask_image5]
-                # Coloring point clouds
-                colors = np.array([[255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 0], [255, 0, 255]])
-                process_and_save_pointcloud(pcd, mask_images, colors, filename)
-                pcd = o3d.io.read_point_cloud(filename=filename)
-                #o3d.visualization.draw_geometries([pcd])
+                    # Render scenes and save depth images
+                    for i, (renderer, scene) in enumerate(zip(renderers, scenes)):
+                        render_scene_and_save_depth(renderers[0], scene, save_data_dir, f"mask{i + 1}_frame{cur_frame}")
+
+                    mask_image1 = cv2.imread(os.path.join(save_data_dir, f"mask1_frame{cur_frame}.png"))
+                    mask_image2 = cv2.imread(os.path.join(save_data_dir, f"mask2_frame{cur_frame}.png"))
+                    mask_image3 = cv2.imread(os.path.join(save_data_dir, f"mask3_frame{cur_frame}.png"))
+                    mask_image4 = cv2.imread(os.path.join(save_data_dir, f"mask4_frame{cur_frame}.png"))
+                    mask_image5 = cv2.imread(os.path.join(save_data_dir, f"mask5_frame{cur_frame}.png"))
+
+                    mask_images = [mask_image1, mask_image2, mask_image3, mask_image4, mask_image5]
+                    # Coloring point clouds
+                    colors = np.array([[255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 0], [255, 0, 255]])
+                    assert process_and_save_pointcloud(pcd, mask_images, colors, filename)
+                    #pcd = o3d.io.read_point_cloud(filename=filename)
+                    #o3d.visualization.draw_geometries([pcd])
+                    cur_frame += 1
+if __name__ == '__main__':
+    main()
