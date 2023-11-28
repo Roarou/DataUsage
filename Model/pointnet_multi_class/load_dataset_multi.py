@@ -46,7 +46,7 @@ def map_color_to_label(color):
 class PointcloudDataset(Dataset):
     def __init__(self, base_path=r'L:\Pointcloud', test_validation_path=r'L:\PointcloudVal',
                  split='train', test_size=0.2, val_size=0.2,
-                 random_state=42, num_points=340000):
+                 random_state=42, num_points=20000):
         """
         Custom dataset class for loading and managing point cloud data.
 
@@ -70,7 +70,7 @@ class PointcloudDataset(Dataset):
         val_dirs = self.file_test_val
         if split == 'train':
             self.specimen_dirs = train_dirs
-        elif split == 'val' or split == 'tes':
+        elif split == 'val' or split == 'test':
             self.specimen_dirs = val_dirs
         else:
             raise ValueError("Invalid split mode. Use 'train', 'val', or 'test'.")
@@ -134,6 +134,6 @@ class PointcloudDataset(Dataset):
             print(f"Warning: Unexpected color detected in file: {filename}")
         normalized_input = normalize_point_cloud(input, file_path)
 
-        input_data = torch.tensor(normalized_input, dtype=torch.float32)
-        labels_tensor = torch.tensor(labels, dtype=torch.float32)
+        input_data = torch.tensor(normalized_input, dtype=torch.float16)
+        labels_tensor = torch.tensor(labels, dtype=torch.float16)
         return input_data, labels_tensor

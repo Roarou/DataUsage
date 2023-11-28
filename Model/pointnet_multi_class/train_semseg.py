@@ -1,6 +1,6 @@
 import argparse
 import os
-from Model.pointnet_multi.load_dataset_multi import PointcloudDataset
+from Model.pointnet_multi_class.load_dataset_multi import PointcloudDataset
 import torch
 import datetime
 import logging
@@ -13,7 +13,7 @@ import numpy as np
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = BASE_DIR
-sys.path.append(os.path.join(ROOT_DIR, 'Model'))
+sys.path.append(os.path.join(ROOT_DIR, ''))
 
 classes = ['L1', 'L2', 'L3', 'L4', 'L5', 'Scene']
 class2label = {cls: i for i, cls in enumerate(classes)}
@@ -22,14 +22,17 @@ seg_label_to_cat = {}
 for i, cat in enumerate(seg_classes.keys()):
     seg_label_to_cat[i] = cat
 
+
 def inplace_relu(m):
     classname = m.__class__.__name__
     if classname.find('ReLU') != -1:
-        m.inplace=True
+        m.inplace = True
+
 
 def parse_args():
     parser = argparse.ArgumentParser('Model')
-    parser.add_argument('--model', type=str, default='spine_multi_class_segmentation', help='model name [default: pointnet_sem_seg]')
+    parser.add_argument('--model', type=str, default='spine_multi_class_segmentation',
+                        help='model name [default: pointnet_sem_seg]')
     parser.add_argument('--batch_size', type=int, default=16, help='Batch Size during training [default: 16]')
     parser.add_argument('--epoch', default=50, type=int, help='Epoch to run [default: 32]')
     parser.add_argument('--learning_rate', default=0.001, type=float, help='Initial learning rate [default: 0.001]')
@@ -55,7 +58,7 @@ def main(args):
 
     '''CREATE DIR'''
     timestr = str(datetime.datetime.now().strftime('%Y-%m-%d_%H-%M'))
-    experiment_dir = Path('./log/')
+    experiment_dir = Path('../../log/')
     experiment_dir.mkdir(exist_ok=True)
     experiment_dir = experiment_dir.joinpath('sem_seg')
     experiment_dir.mkdir(exist_ok=True)
@@ -88,7 +91,6 @@ def main(args):
 
     print("start loading training data ...")
 
-
     TRAIN_DATASET = PointcloudDataset(base_path=base_path, split='train', num_points=NUM_POINT)
     print("start loading test data ...")
     TEST_DATASET = PointcloudDataset(base_path=base_path, split='test', num_points=NUM_POINT)
@@ -103,9 +105,9 @@ def main(args):
 
     '''MODEL LOADING'''
     MODEL = importlib.import_module(args.model)
-    shutil.copy('Model/%s.py' % args.model, str(experiment_dir))
-    shutil.copy('Model/utils.py', str(experiment_dir))
 
+    shutil.copy('../utils.py', str(experiment_dir))
+    shutil.copy('%s.py' % args.model, str(experiment_dir))
     classifier = MODEL.SpineSegmentationNet(NUM_CLASSES).cuda()
     criterion = torch.nn.NLLLoss(weight=weights)
     classifier.apply(inplace_relu)
@@ -171,7 +173,7 @@ def main(args):
         classifier = classifier.train()
         for i, (points, target) in tqdm(enumerate(trainDataLoader), total=len(trainDataLoader), smoothing=0.9):
             optimizer.zero_grad()
-            points, target = points.float().cuda(), target.long().cuda()
+            points, target = points.cuda(), target.long().cuda()
             points = points.transpose(2, 1)
             seg_pred, trans_feat = classifier(points)
             seg_pred = seg_pred.contiguous().view(-1, NUM_CLASSES)

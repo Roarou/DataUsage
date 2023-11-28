@@ -1,9 +1,9 @@
 import torch
-from Model.pointnet_multi.spine_multi_class_segmentation import FastNet
+from Model.pointnet_multi_class.spine_multi_class_segmentation import FastNet
 import os
 import numpy as np
 import open3d as o3d
-from Model.pointnet_multi.load_dataset_multi import normalize_point_cloud
+from Model.pointnet_multi_class.load_dataset_multi import normalize_point_cloud
 import copy
 import pandas as pd
 

@@ -4,8 +4,8 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
-from Model.pointnet_multi.spine_multi_class_segmentation import SpineSegmentationNet
-from Model.pointnet_multi.load_dataset_multi import PointcloudDataset  # Replace with the proper file name
+from Model.pointnet_multi_class.spine_multi_class_segmentation import SpineSegmentationNet
+from Model.pointnet_multi_class.load_dataset_multi import PointcloudDataset  # Replace with the proper file name
 from Model.get_metrics import calculate_metrics
 import time
 

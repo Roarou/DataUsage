@@ -259,8 +259,8 @@ def create_transformation_matrix(df_row):
     ])
 
 def main():
-    # Main code ["Specimen_1", "Specimen_2","Specimen_3",
-    specimens = [ "Specimen_4", "Specimen_5", "Specimen_6", "Specimen_7","Specimen_8", "Specimen_9", "Specimen_10"]
+    # Main code [ "Specimen_2","Specimen_3","Specimen_4", "Specimen_5", "Specimen_6", "Specimen_7","Specimen_8","Specimen_9",
+    specimens = [ "Specimen_1",  "Specimen_10"]
     camera_nums = [0, 1]
     for specimen, camera_num in product(specimens, camera_nums):
         specimen_directory_path = os.path.join(SOURCE_DIR, specimen)

@@ -1,371 +1,289 @@
-import os
-import time
-import random
-import numpy as np
-import logging
 import argparse
-import shutil
-
+import os
+from Model.pointnet_multi_class.load_dataset_multi import PointcloudDataset
 import torch
-import torch.backends.cudnn as cudnn
-import torch.nn as nn
-import torch.nn.parallel
-import torch.optim
-import torch.utils.data
-import torch.multiprocessing as mp
-import torch.distributed as dist
-import torch.optim.lr_scheduler as lr_scheduler
-from tensorboard import SummaryWriter
+import datetime
+import logging
+from pathlib import Path
+import sys
+import importlib
+import shutil
+from tqdm import tqdm
+import numpy as np
 
-from Model.util_pointtransformer import config
-from Model.util_pointtransformer.s3dis import S3DIS
-from Model.util_pointtransformer.common_util import AverageMeter, intersectionAndUnionGPU, find_free_port
-from Model.util_pointtransformer.data_util import collate_fn
-from Model.util_pointtransformer import transform as t
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = BASE_DIR
+sys.path.append(os.path.join(ROOT_DIR, ''))
 
-
-def get_parser():
-    parser = argparse.ArgumentParser(description='PyTorch Point Cloud Semantic Segmentation')
-    parser.add_argument('--config', type=str, default='config/s3dis/s3dis_pointtransformer_repro.yaml', help='config file')
-    parser.add_argument('opts', help='see config/s3dis/s3dis_pointtransformer_repro.yaml for all options', default=None, nargs=argparse.REMAINDER)
-    args = parser.parse_args()
-    assert args.config is not None
-    cfg = config.load_cfg_from_cfg_file(args.config)
-    if args.opts is not None:
-        cfg = config.merge_cfg_from_list(cfg, args.opts)
-    return cfg
+classes = ['L1', 'L2', 'L3', 'L4', 'L5', 'Scene']
+class2label = {cls: i for i, cls in enumerate(classes)}
+seg_classes = class2label
+seg_label_to_cat = {}
+for i, cat in enumerate(seg_classes.keys()):
+    seg_label_to_cat[i] = cat
 
 
-def get_logger():
-    logger_name = "main-logger"
-    logger = logging.getLogger(logger_name)
+def collate_fn(batch):
+    coord, label = list(zip(*batch))
+    feat = coord
+    offset, count = [], 0
+    for item in coord:
+        count += item.shape[0]
+        offset.append(count)
+    return torch.cat(coord), torch.cat(feat), torch.cat(label), torch.IntTensor(offset)
+
+
+def inplace_relu(m):
+    classname = m.__class__.__name__
+    if classname.find('ReLU') != -1:
+        m.inplace = True
+
+
+def parse_args():
+    parser = argparse.ArgumentParser('Model')
+    parser.add_argument('--model', type=str, default='PointTr_V3',
+                        help='model name [default: pointnet_sem_seg]')
+    parser.add_argument('--batch_size', type=int, default=2, help='Batch Size during training [default: 16]')
+    parser.add_argument('--epoch', default=50, type=int, help='Epoch to run [default: 32]')
+    parser.add_argument('--learning_rate', default=0.001, type=float, help='Initial learning rate [default: 0.001]')
+    parser.add_argument('--gpu', type=str, default='0', help='GPU to use [default: GPU 0]')
+    parser.add_argument('--optimizer', type=str, default='Adam', help='Adam or SGD [default: Adam]')
+    parser.add_argument('--log_dir', type=str, default=None, help='Log path [default: None]')
+    parser.add_argument('--decay_rate', type=float, default=1e-4, help='weight decay [default: 1e-4]')
+    parser.add_argument('--npoint', type=int, default=20000, help='Point Number [default: 4096]')
+    parser.add_argument('--step_size', type=int, default=10, help='Decay step for lr decay [default: every 10 epochs]')
+    parser.add_argument('--lr_decay', type=float, default=0.7, help='Decay rate for lr decay [default: 0.7]')
+    parser.add_argument('--test_area', type=int, default=5, help='Which area to use for test, option: 1-6 [default: 5]')
+
+    return parser.parse_args()
+
+
+def main(args):
+    def log_string(str):
+        logger.info(str)
+        print(str)
+
+    '''HYPER PARAMETER'''
+    os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
+
+    '''CREATE DIR'''
+    timestr = str(datetime.datetime.now().strftime('%Y-%m-%d_%H-%M'))
+    experiment_dir = Path('../../log/')
+    experiment_dir.mkdir(exist_ok=True)
+    experiment_dir = experiment_dir.joinpath('sem_seg')
+    experiment_dir.mkdir(exist_ok=True)
+    if args.log_dir is None:
+        experiment_dir = experiment_dir.joinpath(timestr)
+    else:
+        experiment_dir = experiment_dir.joinpath(args.log_dir)
+    experiment_dir.mkdir(exist_ok=True)
+    checkpoints_dir = experiment_dir.joinpath('checkpoints/')
+    checkpoints_dir.mkdir(exist_ok=True)
+    log_dir = experiment_dir.joinpath('logs/')
+    log_dir.mkdir(exist_ok=True)
+
+    '''LOG'''
+    args = parse_args()
+    logger = logging.getLogger("Model")
     logger.setLevel(logging.INFO)
-    handler = logging.StreamHandler()
-    fmt = "[%(asctime)s %(levelname)s %(filename)s line %(lineno)d %(process)d] %(message)s"
-    handler.setFormatter(logging.Formatter(fmt))
-    logger.addHandler(handler)
-    return logger
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    file_handler = logging.FileHandler('%s/%s.txt' % (log_dir, args.model))
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+    log_string('PARAMETER ...')
+    log_string(args)
 
+    base_path = 'L:\Pointcloud'
+    NUM_CLASSES = 6
+    NUM_POINT = args.npoint
+    BATCH_SIZE = args.batch_size
 
-def worker_init_fn(worker_id):
-    random.seed(args.manual_seed + worker_id)
+    print("start loading training data ...")
 
+    TRAIN_DATASET = PointcloudDataset(base_path=base_path, split='train', num_points=NUM_POINT)
+    print("start loading test data ...")
+    TEST_DATASET = PointcloudDataset(base_path=base_path, split='test', num_points=NUM_POINT)
+    trainDataLoader = torch.utils.data.DataLoader(TRAIN_DATASET, batch_size=BATCH_SIZE, shuffle=True, num_workers=10,
+                                                  pin_memory=True, drop_last=True)
+    testDataLoader = torch.utils.data.DataLoader(TEST_DATASET, batch_size=BATCH_SIZE, shuffle=False, num_workers=10,
+                                                 pin_memory=True, drop_last=True)
+    weights = torch.Tensor([0.1996, 0.1996, 0.1996, 0.1996, 0.1996, 0.0021]).cuda()
 
-def main_process():
-    return not args.multiprocessing_distributed or (args.multiprocessing_distributed and args.rank % args.ngpus_per_node == 0)
+    log_string("The number of training data is: %d" % len(TRAIN_DATASET))
+    log_string("The number of test data is: %d" % len(TEST_DATASET))
 
+    '''MODEL LOADING'''
+    MODEL = importlib.import_module(args.model)
 
-def main():
-    args = get_parser()
-    os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(str(x) for x in args.train_gpu)
+    shutil.copy('./utils.py', str(experiment_dir))
+    shutil.copy('%s.py' % args.model, str(experiment_dir))
+    classifier = MODEL.PointTransformerSeg().cuda()
+    criterion = torch.nn.NLLLoss(weight=weights)
+    classifier.apply(inplace_relu)
 
-    if args.manual_seed is not None:
-        random.seed(args.manual_seed)
-        np.random.seed(args.manual_seed)
-        torch.manual_seed(args.manual_seed)
-        torch.cuda.manual_seed(args.manual_seed)
-        torch.cuda.manual_seed_all(args.manual_seed)
-        cudnn.benchmark = False
-        cudnn.deterministic = True
-    if args.dist_url == "env://" and args.world_size == -1:
-        args.world_size = int(os.environ["WORLD_SIZE"])
-    args.distributed = args.world_size > 1 or args.multiprocessing_distributed
-    args.ngpus_per_node = len(args.train_gpu)
-    if len(args.train_gpu) == 1:
-        args.sync_bn = False
-        args.distributed = False
-        args.multiprocessing_distributed = False
+    def weights_init(m):
+        classname = m.__class__.__name__
+        if classname.find('Conv2d') != -1:
+            torch.nn.init.xavier_normal_(m.weight.data)
+            torch.nn.init.constant_(m.bias.data, 0.0)
+        elif classname.find('Linear') != -1:
+            torch.nn.init.xavier_normal_(m.weight.data)
+            torch.nn.init.constant_(m.bias.data, 0.0)
 
-    if args.data_name == 's3dis':
-        S3DIS(split='train', data_root=args.data_root, test_area=args.test_area)
-        S3DIS(split='val', data_root=args.data_root, test_area=args.test_area)
-    else:
-        raise NotImplementedError()
-    if args.multiprocessing_distributed:
-        port = find_free_port()
-        args.dist_url = f"tcp://localhost:{port}"
-        args.world_size = args.ngpus_per_node * args.world_size
-        mp.spawn(main_worker, nprocs=args.ngpus_per_node, args=(args.ngpus_per_node, args))
-    else:
-        main_worker(args.train_gpu, args.ngpus_per_node, args)
+    try:
+        checkpoint = torch.load(str(experiment_dir) + '/checkpoints/best_model.pth')
+        start_epoch = checkpoint['epoch']
+        classifier.load_state_dict(checkpoint['model_state_dict'])
+        log_string('Use pretrain model')
+    except:
+        log_string('No existing model, starting training from scratch...')
+        start_epoch = 0
+        classifier = classifier.apply(weights_init)
 
-
-def main_worker(gpu, ngpus_per_node, argss):
-    global args, best_iou
-    args, best_iou = argss, 0
-    if args.distributed:
-        if args.dist_url == "env://" and args.rank == -1:
-            args.rank = int(os.environ["RANK"])
-        if args.multiprocessing_distributed:
-            args.rank = args.rank * ngpus_per_node + gpu
-        dist.init_process_group(backend=args.dist_backend, init_method=args.dist_url, world_size=args.world_size, rank=args.rank)
-
-    if args.arch == 'pointtransformer_seg_repro':
-        from model.pointtransformer.pointtransformer_seg import pointtransformer_seg_repro as Model
-    else:
-        raise Exception('architecture not supported yet'.format(args.arch))
-    model = Model(c=args.fea_dim, k=args.classes)
-    if args.sync_bn:
-       model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
-    criterion = nn.CrossEntropyLoss(ignore_index=args.ignore_label).cuda()
-
-    optimizer = torch.optim.SGD(model.parameters(), lr=args.base_lr, momentum=args.momentum, weight_decay=args.weight_decay)
-    scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[int(args.epochs*0.6), int(args.epochs*0.8)], gamma=0.1)
-
-    if main_process():
-        global logger, writer
-        logger = get_logger()
-        writer = SummaryWriter(args.save_path)
-        logger.info(args)
-        logger.info("=> creating model ...")
-        logger.info("Classes: {}".format(args.classes))
-        logger.info(model)
-    if args.distributed:
-        torch.cuda.set_device(gpu)
-        args.batch_size = int(args.batch_size / ngpus_per_node)
-        args.batch_size_val = int(args.batch_size_val / ngpus_per_node)
-        args.workers = int((args.workers + ngpus_per_node - 1) / ngpus_per_node)
-        model = torch.nn.parallel.DistributedDataParallel(
-            model.cuda(),
-            device_ids=[gpu],
-            find_unused_parameters=True if "transformer" in args.arch else False
+    if args.optimizer == 'Adam':
+        optimizer = torch.optim.Adam(
+            classifier.parameters(),
+            lr=args.learning_rate,
+            betas=(0.9, 0.999),
+            eps=1e-08,
+            weight_decay=args.decay_rate
         )
-
     else:
-        model = torch.nn.DataParallel(model.cuda())
+        optimizer = torch.optim.SGD(classifier.parameters(), lr=args.learning_rate, momentum=0.9)
 
-    if args.weight:
-        if os.path.isfile(args.weight):
-            if main_process():
-                logger.info("=> loading weight '{}'".format(args.weight))
-            checkpoint = torch.load(args.weight)
-            model.load_state_dict(checkpoint['state_dict'])
-            if main_process():
-                logger.info("=> loaded weight '{}'".format(args.weight))
-        else:
-            logger.info("=> no weight found at '{}'".format(args.weight))
+    def bn_momentum_adjust(m, momentum):
+        if isinstance(m, torch.nn.BatchNorm2d) or isinstance(m, torch.nn.BatchNorm1d):
+            m.momentum = momentum
 
-    if args.resume:
-        if os.path.isfile(args.resume):
-            if main_process():
-                logger.info("=> loading checkpoint '{}'".format(args.resume))
-            checkpoint = torch.load(args.resume, map_location=lambda storage, loc: storage.cuda())
-            args.start_epoch = checkpoint['epoch']
-            model.load_state_dict(checkpoint['state_dict'], strict=True)
-            optimizer.load_state_dict(checkpoint['optimizer'])
-            scheduler.load_state_dict(checkpoint['scheduler'])
-            #best_iou = 40.0
-            best_iou = checkpoint['best_iou']
-            if main_process():
-                logger.info("=> loaded checkpoint '{}' (epoch {})".format(args.resume, checkpoint['epoch']))
-        else:
-            if main_process():
-                logger.info("=> no checkpoint found at '{}'".format(args.resume))
+    LEARNING_RATE_CLIP = 1e-5
+    MOMENTUM_ORIGINAL = 0.1
+    MOMENTUM_DECCAY = 0.5
+    MOMENTUM_DECCAY_STEP = args.step_size
 
-    train_transform = t.Compose([t.RandomScale([0.9, 1.1]), t.ChromaticAutoContrast(), t.ChromaticTranslation(), t.ChromaticJitter(), t.HueSaturationTranslation()])
-    train_data = S3DIS(split='train', data_root=args.data_root, test_area=args.test_area, voxel_size=args.voxel_size, voxel_max=args.voxel_max, transform=train_transform, shuffle_index=True, loop=args.loop)
-    if main_process():
-            logger.info("train_data samples: '{}'".format(len(train_data)))
-    if args.distributed:
-        train_sampler = torch.utils.data.distributed.DistributedSampler(train_data)
-    else:
-        train_sampler = None
-    train_loader = torch.utils.data.DataLoader(train_data, batch_size=args.batch_size, shuffle=(train_sampler is None), num_workers=args.workers, pin_memory=True, sampler=train_sampler, drop_last=True, collate_fn=collate_fn)
+    global_epoch = 0
+    best_iou = 0
 
-    val_loader = None
-    if args.evaluate:
-        val_transform = None
-        val_data = S3DIS(split='val', data_root=args.data_root, test_area=args.test_area, voxel_size=args.voxel_size, voxel_max=800000, transform=val_transform)
-        if args.distributed:
-            val_sampler = torch.utils.data.distributed.DistributedSampler(val_data)
-        else:
-            val_sampler = None
-        val_loader = torch.utils.data.DataLoader(val_data, batch_size=args.batch_size_val, shuffle=False, num_workers=args.workers, pin_memory=True, sampler=val_sampler, collate_fn=collate_fn)
+    for epoch in range(start_epoch, args.epoch):
+        '''Train on chopped scenes'''
+        log_string('**** Epoch %d (%d/%s) ****' % (global_epoch + 1, epoch + 1, args.epoch))
+        lr = max(args.learning_rate * (args.lr_decay ** (epoch // args.step_size)), LEARNING_RATE_CLIP)
+        log_string('Learning rate:%f' % lr)
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = lr
+        momentum = MOMENTUM_ORIGINAL * (MOMENTUM_DECCAY ** (epoch // MOMENTUM_DECCAY_STEP))
+        if momentum < 0.01:
+            momentum = 0.01
+        print('BN momentum updated to: %f' % momentum)
+        classifier = classifier.apply(lambda x: bn_momentum_adjust(x, momentum))
+        num_batches = len(trainDataLoader)
+        total_correct = 0
+        total_seen = 0
+        loss_sum = 0
+        classifier = classifier.train()
+        for i, (points, target) in tqdm(enumerate(trainDataLoader), total=len(trainDataLoader), smoothing=0.9):
+            optimizer.zero_grad()
+            points, target = points.float().cuda(), target.long().cuda()
+            # points = points.transpose(2, 1)
+            seg_pred = classifier(points)
+            seg_pred = seg_pred.contiguous().view(-1, NUM_CLASSES)
+            batch_label = target.view(-1, 1)[:, 0].cpu().data.numpy()
+            target = target.view(-1, 1)[:, 0]
+            loss = criterion(seg_pred, target)
+            loss.backward()
+            optimizer.step()
+            pred_choice = seg_pred.cpu().data.max(1)[1].numpy()
+            correct = np.sum(pred_choice == batch_label)
+            total_correct += correct
+            total_seen += (BATCH_SIZE * NUM_POINT)
+            loss_sum += loss
+        log_string('Training mean loss: %f' % (loss_sum / num_batches))
+        log_string('Training accuracy: %f' % (total_correct / float(total_seen)))
 
-    for epoch in range(args.start_epoch, args.epochs):
-        if args.distributed:
-            train_sampler.set_epoch(epoch)
-        loss_train, mIoU_train, mAcc_train, allAcc_train = train(train_loader, model, criterion, optimizer, epoch)
-        scheduler.step()
-        epoch_log = epoch + 1
-        if main_process():
-            writer.add_scalar('loss_train', loss_train, epoch_log)
-            writer.add_scalar('mIoU_train', mIoU_train, epoch_log)
-            writer.add_scalar('mAcc_train', mAcc_train, epoch_log)
-            writer.add_scalar('allAcc_train', allAcc_train, epoch_log)
+        if epoch % 2 == 0:
+            logger.info('Save model...')
+            savepath = str(checkpoints_dir) + '/model.pth'
+            log_string('Saving at %s' % savepath)
+            state = {
+                'epoch': epoch,
+                'model_state_dict': classifier.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+            }
+            torch.save(state, savepath)
+            log_string('Saving model....')
 
-        is_best = False
-        if args.evaluate and (epoch_log % args.eval_freq == 0):
-            if args.data_name == 'shapenet':
-                raise NotImplementedError()
-            else:
-                loss_val, mIoU_val, mAcc_val, allAcc_val = validate(val_loader, model, criterion)
-
-            if main_process():
-                writer.add_scalar('loss_val', loss_val, epoch_log)
-                writer.add_scalar('mIoU_val', mIoU_val, epoch_log)
-                writer.add_scalar('mAcc_val', mAcc_val, epoch_log)
-                writer.add_scalar('allAcc_val', allAcc_val, epoch_log)
-                is_best = mIoU_val > best_iou
-                best_iou = max(best_iou, mIoU_val)
-
-        if (epoch_log % args.save_freq == 0) and main_process():
-            filename = args.save_path + '/model/model_last.pth'
-            logger.info('Saving checkpoint to: ' + filename)
-            torch.save({'epoch': epoch_log, 'state_dict': model.state_dict(), 'optimizer': optimizer.state_dict(),
-                        'scheduler': scheduler.state_dict(), 'best_iou': best_iou, 'is_best': is_best}, filename)
-            if is_best:
-                logger.info('Best validation mIoU updated to: {:.4f}'.format(best_iou))
-                shutil.copyfile(filename, args.save_path + '/model/model_best.pth')
-
-    if main_process():
-        writer.close()
-        logger.info('==>Training done!\nBest Iou: %.3f' % (best_iou))
-
-
-def train(train_loader, model, criterion, optimizer, epoch):
-    batch_time = AverageMeter()
-    data_time = AverageMeter()
-    loss_meter = AverageMeter()
-    intersection_meter = AverageMeter()
-    union_meter = AverageMeter()
-    target_meter = AverageMeter()
-
-    model.train()
-    end = time.time()
-    max_iter = args.epochs * len(train_loader)
-    for i, (coord, feat, target, offset) in enumerate(train_loader):  # (n, 3), (n, c), (n), (b)
-        data_time.update(time.time() - end)
-        coord, feat, target, offset = coord.cuda(non_blocking=True), feat.cuda(non_blocking=True), target.cuda(non_blocking=True), offset.cuda(non_blocking=True)
-        output = model([coord, feat, offset])
-        if target.shape[-1] == 1:
-            target = target[:, 0]  # for cls
-        loss = criterion(output, target)
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-
-        output = output.max(1)[1]
-        n = coord.size(0)
-        if args.multiprocessing_distributed:
-            loss *= n
-            count = target.new_tensor([n], dtype=torch.long)
-            dist.all_reduce(loss), dist.all_reduce(count)
-            n = count.item()
-            loss /= n
-        intersection, union, target = intersectionAndUnionGPU(output, target, args.classes, args.ignore_label)
-        if args.multiprocessing_distributed:
-            dist.all_reduce(intersection), dist.all_reduce(union), dist.all_reduce(target)
-        intersection, union, target = intersection.cpu().numpy(), union.cpu().numpy(), target.cpu().numpy()
-        intersection_meter.update(intersection), union_meter.update(union), target_meter.update(target)
-
-        accuracy = sum(intersection_meter.val) / (sum(target_meter.val) + 1e-10)
-        loss_meter.update(loss.item(), n)
-        batch_time.update(time.time() - end)
-        end = time.time()
-
-        # calculate remain time
-        current_iter = epoch * len(train_loader) + i + 1
-        remain_iter = max_iter - current_iter
-        remain_time = remain_iter * batch_time.avg
-        t_m, t_s = divmod(remain_time, 60)
-        t_h, t_m = divmod(t_m, 60)
-        remain_time = '{:02d}:{:02d}:{:02d}'.format(int(t_h), int(t_m), int(t_s))
-
-        if (i + 1) % args.print_freq == 0 and main_process():
-            logger.info('Epoch: [{}/{}][{}/{}] '
-                        'Data {data_time.val:.3f} ({data_time.avg:.3f}) '
-                        'Batch {batch_time.val:.3f} ({batch_time.avg:.3f}) '
-                        'Remain {remain_time} '
-                        'Loss {loss_meter.val:.4f} '
-                        'Accuracy {accuracy:.4f}.'.format(epoch+1, args.epochs, i + 1, len(train_loader),
-                                                          batch_time=batch_time, data_time=data_time,
-                                                          remain_time=remain_time,
-                                                          loss_meter=loss_meter,
-                                                          accuracy=accuracy))
-        if main_process():
-            writer.add_scalar('loss_train_batch', loss_meter.val, current_iter)
-            writer.add_scalar('mIoU_train_batch', np.mean(intersection / (union + 1e-10)), current_iter)
-            writer.add_scalar('mAcc_train_batch', np.mean(intersection / (target + 1e-10)), current_iter)
-            writer.add_scalar('allAcc_train_batch', accuracy, current_iter)
-
-    iou_class = intersection_meter.sum / (union_meter.sum + 1e-10)
-    accuracy_class = intersection_meter.sum / (target_meter.sum + 1e-10)
-    mIoU = np.mean(iou_class)
-    mAcc = np.mean(accuracy_class)
-    allAcc = sum(intersection_meter.sum) / (sum(target_meter.sum) + 1e-10)
-    if main_process():
-        logger.info('Train result at epoch [{}/{}]: mIoU/mAcc/allAcc {:.4f}/{:.4f}/{:.4f}.'.format(epoch+1, args.epochs, mIoU, mAcc, allAcc))
-    return loss_meter.avg, mIoU, mAcc, allAcc
-
-
-def validate(val_loader, model, criterion):
-    if main_process():
-        logger.info('>>>>>>>>>>>>>>>> Start Evaluation >>>>>>>>>>>>>>>>')
-    batch_time = AverageMeter()
-    data_time = AverageMeter()
-    loss_meter = AverageMeter()
-    intersection_meter = AverageMeter()
-    union_meter = AverageMeter()
-    target_meter = AverageMeter()
-
-    model.eval()
-    end = time.time()
-    for i, (coord, feat, target, offset) in enumerate(val_loader):
-        data_time.update(time.time() - end)
-        coord, feat, target, offset = coord.cuda(non_blocking=True), feat.cuda(non_blocking=True), target.cuda(non_blocking=True), offset.cuda(non_blocking=True)
-        if target.shape[-1] == 1:
-            target = target[:, 0]  # for cls
+        '''Evaluate on chopped scenes'''
         with torch.no_grad():
-            output = model([coord, feat, offset])
-        loss = criterion(output, target)
+            num_batches = len(testDataLoader)
+            total_correct = 0
+            total_seen = 0
+            loss_sum = 0
+            labelweights = np.zeros(NUM_CLASSES)
+            total_seen_class = [0 for _ in range(NUM_CLASSES)]
+            total_correct_class = [0 for _ in range(NUM_CLASSES)]
+            total_iou_deno_class = [0 for _ in range(NUM_CLASSES)]
+            classifier = classifier.eval()
 
-        output = output.max(1)[1]
-        n = coord.size(0)
-        if args.multiprocessing_distributed:
-            loss *= n
-            count = target.new_tensor([n], dtype=torch.long)
-            dist.all_reduce(loss), dist.all_reduce(count)
-            n = count.item()
-            loss /= n
+            log_string('---- EPOCH %03d EVALUATION ----' % (global_epoch + 1))
+            for i, (points, target) in tqdm(enumerate(testDataLoader), total=len(testDataLoader), smoothing=0.9):
+                points, target = points.float().cuda(), target.long().cuda()
+                # points = points.transpose(2, 1)
 
-        intersection, union, target = intersectionAndUnionGPU(output, target, args.classes, args.ignore_label)
-        if args.multiprocessing_distributed:
-            dist.all_reduce(intersection), dist.all_reduce(union), dist.all_reduce(target)
-        intersection, union, target = intersection.cpu().numpy(), union.cpu().numpy(), target.cpu().numpy()
-        intersection_meter.update(intersection), union_meter.update(union), target_meter.update(target)
+                seg_pred, trans_feat = classifier(points)
+                pred_val = seg_pred.contiguous().cpu().data.numpy()
+                seg_pred = seg_pred.contiguous().view(-1, NUM_CLASSES)
 
-        accuracy = sum(intersection_meter.val) / (sum(target_meter.val) + 1e-10)
-        loss_meter.update(loss.item(), n)
-        batch_time.update(time.time() - end)
-        end = time.time()
-        if (i + 1) % args.print_freq == 0 and main_process():
-            logger.info('Test: [{}/{}] '
-                        'Data {data_time.val:.3f} ({data_time.avg:.3f}) '
-                        'Batch {batch_time.val:.3f} ({batch_time.avg:.3f}) '
-                        'Loss {loss_meter.val:.4f} ({loss_meter.avg:.4f}) '
-                        'Accuracy {accuracy:.4f}.'.format(i + 1, len(val_loader),
-                                                          data_time=data_time,
-                                                          batch_time=batch_time,
-                                                          loss_meter=loss_meter,
-                                                          accuracy=accuracy))
+                batch_label = target.cpu().data.numpy()
+                target = target.view(-1, 1)[:, 0]
+                loss = criterion(seg_pred, target)
+                loss_sum += loss
+                pred_val = np.argmax(pred_val, 2)
+                correct = np.sum((pred_val == batch_label))
+                total_correct += correct
+                total_seen += (BATCH_SIZE * NUM_POINT)
+                tmp, _ = np.histogram(batch_label, range(NUM_CLASSES + 1))
+                labelweights += tmp
 
-    iou_class = intersection_meter.sum / (union_meter.sum + 1e-10)
-    accuracy_class = intersection_meter.sum / (target_meter.sum + 1e-10)
-    mIoU = np.mean(iou_class)
-    mAcc = np.mean(accuracy_class)
-    allAcc = sum(intersection_meter.sum) / (sum(target_meter.sum) + 1e-10)
+                for l in range(NUM_CLASSES):
+                    total_seen_class[l] += np.sum((batch_label == l))
+                    total_correct_class[l] += np.sum((pred_val == l) & (batch_label == l))
+                    total_iou_deno_class[l] += np.sum(((pred_val == l) | (batch_label == l)))
 
-    if main_process():
-        logger.info('Val result: mIoU/mAcc/allAcc {:.4f}/{:.4f}/{:.4f}.'.format(mIoU, mAcc, allAcc))
-        for i in range(args.classes):
-            logger.info('Class_{} Result: iou/accuracy {:.4f}/{:.4f}.'.format(i, iou_class[i], accuracy_class[i]))
-        logger.info('<<<<<<<<<<<<<<<<< End Evaluation <<<<<<<<<<<<<<<<<')
+            labelweights = labelweights.astype(np.float32) / np.sum(labelweights.astype(np.float32))
+            mIoU = np.mean(np.array(total_correct_class) / (np.array(total_iou_deno_class, dtype=float) + 1e-6))
+            log_string('eval mean loss: %f' % (loss_sum / float(num_batches)))
+            log_string('eval point avg class IoU: %f' % (mIoU))
+            log_string('eval point accuracy: %f' % (total_correct / float(total_seen)))
+            log_string('eval point avg class acc: %f' % (
+                np.mean(np.array(total_correct_class) / (np.array(total_seen_class, dtype=float) + 1e-6))))
 
-    return loss_meter.avg, mIoU, mAcc, allAcc
+            iou_per_class_str = '------- IoU --------\n'
+            for l in range(NUM_CLASSES):
+                iou_per_class_str += 'class %s weight: %.3f, IoU: %.3f \n' % (
+                    seg_label_to_cat[l] + ' ' * (14 - len(seg_label_to_cat[l])), labelweights[l - 1],
+                    total_correct_class[l] / float(total_iou_deno_class[l]))
+
+            log_string(iou_per_class_str)
+            log_string('Eval mean loss: %f' % (loss_sum / num_batches))
+            log_string('Eval accuracy: %f' % (total_correct / float(total_seen)))
+
+            if mIoU >= best_iou:
+                best_iou = mIoU
+                logger.info('Save model...')
+                savepath = str(checkpoints_dir) + '/best_model.pth'
+                log_string('Saving at %s' % savepath)
+                state = {
+                    'epoch': epoch,
+                    'class_avg_iou': mIoU,
+                    'model_state_dict': classifier.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                }
+                torch.save(state, savepath)
+                log_string('Saving model....')
+            log_string('Best mIoU: %f' % best_iou)
+        global_epoch += 1
 
 
 if __name__ == '__main__':
-    import gc
-    gc.collect()
-    main()
+    args = parse_args()
+    main(args)

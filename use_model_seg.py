@@ -1,5 +1,5 @@
 import torch
-from Model.pointnet_multi.spine_multi_class_segmentation import SpineSegmentationNet
+from Model.pointnet_multi_class.spine_multi_class_segmentation import SpineSegmentationNet
 from Model.pointnet_binary.load_dataset import normalize_point_cloud
 import open3d as o3d
 import numpy as np
