@@ -98,7 +98,7 @@ class PointTransformerCls(nn.Module):
 class PointTransformerSeg(nn.Module):
     def __init__(self, number_class=6):
         super().__init__()
-        npoints, nblocks, nneighbor, n_c, d_points, transformer_dim = 20000, 4, 16, number_class, 3, 512
+        npoints, nblocks, nneighbor, n_c, d_points, transformer_dim = 4000, 4, 16, number_class, 3, 512
         self.backbone = Backbone(npoints, nblocks, nneighbor, n_c, d_points, transformer_dim)
         self.fc2 = nn.Sequential(
             nn.Linear(32 * 2 ** nblocks, 512),
@@ -136,7 +136,9 @@ class PointTransformerSeg(nn.Module):
             points = self.transformers[i](xyz, points)[0]
 
         points = self.fc3(points)
-
-        return F.log_softmax(points, dim=1)
+        # print(points.shape)
+        # points = F.log_softmax(points, dim=2)
+        # print(points.shape)
+        return points
 
 
