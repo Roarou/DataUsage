@@ -40,7 +40,7 @@ def parse_args():
     parser.add_argument('--optimizer', type=str, default='Adam', help='Adam or SGD [default: Adam]')
     parser.add_argument('--log_dir', type=str, default=None, help='Log path [default: None]')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='weight decay [default: 1e-4]')
-    parser.add_argument('--npoint', type=int, default=20000, help='Point Number [default: 4096]')
+    parser.add_argument('--npoint', type=int, default=4000, help='Point Number [default: 4096]')
     parser.add_argument('--step_size', type=int, default=10, help='Decay step for lr decay [default: every 10 epochs]')
     parser.add_argument('--lr_decay', type=float, default=0.7, help='Decay rate for lr decay [default: 0.7]')
     parser.add_argument('--test_area', type=int, default=5, help='Which area to use for test, option: 1-6 [default: 5]')
@@ -58,7 +58,7 @@ def main(args):
 
     '''CREATE DIR'''
     timestr = str(datetime.datetime.now().strftime('%Y-%m-%d_%H-%M'))
-    experiment_dir = Path('../../log/')
+    experiment_dir = Path('../log/')
     experiment_dir.mkdir(exist_ok=True)
     experiment_dir = experiment_dir.joinpath('sem_seg')
     experiment_dir.mkdir(exist_ok=True)
@@ -98,7 +98,7 @@ def main(args):
                                                   pin_memory=True, drop_last=True)
     testDataLoader = torch.utils.data.DataLoader(TEST_DATASET, batch_size=BATCH_SIZE, shuffle=False, num_workers=10,
                                                  pin_memory=True, drop_last=True)
-    weights = torch.Tensor([0.1996, 0.1996, 0.1996, 0.1996, 0.1996, 0.0021]).cuda()
+    weights = torch.Tensor([1.1881, 1.1881, 1.1881, 1.1881, 1.1881,  0.0594]).cuda()
 
     log_string("The number of training data is: %d" % len(TRAIN_DATASET))
     log_string("The number of test data is: %d" % len(TEST_DATASET))
@@ -171,9 +171,11 @@ def main(args):
         total_seen = 0
         loss_sum = 0
         classifier = classifier.train()
-        for i, (points, target) in tqdm(enumerate(trainDataLoader), total=len(trainDataLoader), smoothing=0.9):
+        t = tqdm(enumerate(trainDataLoader), total=len(trainDataLoader), smoothing=0.9)
+
+        for i, (points, target) in t:
             optimizer.zero_grad()
-            points, target = points.cuda(), target.long().cuda()
+            points, target = points.float().cuda(), target.long().cuda()
             points = points.transpose(2, 1)
             seg_pred, trans_feat = classifier(points)
             seg_pred = seg_pred.contiguous().view(-1, NUM_CLASSES)
