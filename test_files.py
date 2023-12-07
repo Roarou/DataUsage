@@ -325,7 +325,7 @@ def main():
                     save_data_dir = os.path.join(r"C:\Users\cheg\PycharmProjects\DataUsage", specimen,
                                                  recording,
                                                  "pointcloud_cam_{}_recording_{}".format(camera_num, cur_frame))
-                    filename = f'L:\Pointcloud\Pointcloud_{cur_frame}_spec_{specimen}_vid_{camera_num}_{recording}.pcd'
+                    filename = f'L:\PointcloudVal1\Pointcloud_{cur_frame}_spec_{specimen}_vid_{camera_num}_{recording}.pcd'
                     print("saving files to:{}".format(save_data_dir))
                     if not os.path.exists(save_data_dir):
                         os.makedirs(save_data_dir)
