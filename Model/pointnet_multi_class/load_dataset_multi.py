@@ -44,7 +44,7 @@ def map_color_to_label(color):
 
 
 class PointcloudDataset(Dataset):
-    def __init__(self, base_path=r'L:\Pointcloud', test_validation_path=r'L:\PointcloudVal',
+    def __init__(self, base_path=r'L:\Pointcloud', validation_path=r'L:\PointcloudVal1', test_path=r'L:\PointcloudTest',
                  split='train', test_size=0.2, val_size=0.2,
                  random_state=42, num_points=20000):
         """
@@ -59,7 +59,8 @@ class PointcloudDataset(Dataset):
         """
         self.root_dir = base_path
         self.file_list = os.listdir(self.root_dir)
-        self.file_test_val = os.listdir(test_validation_path)
+        self.file_val = os.listdir(validation_path)
+        self.file_test = os.listdir(test_path)
         self.target_num_points = num_points
 
         # Split the dataset into train, validation, and test sets
@@ -67,11 +68,14 @@ class PointcloudDataset(Dataset):
         # train_dirs, val_dirs = train_test_split(train_dirs, test_size=val_size, random_state=random_state)
         train_dirs = self.file_list
         # test_dirs, val_dirs = train_test_split(self.file_test_val, test_size=val_size, random_state=random_state)
-        val_dirs = self.file_test_val
+        val_dirs = self.file_val
+        test_dirs = self.file_test
         if split == 'train':
             self.specimen_dirs = train_dirs
-        elif split == 'val' or split == 'test':
+        elif split == 'val':
             self.specimen_dirs = val_dirs
+        elif split == 'test':
+            self.specimen_dirs = test_dirs
         else:
             raise ValueError("Invalid split mode. Use 'train', 'val', or 'test'.")
         """
