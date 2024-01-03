@@ -94,7 +94,7 @@ def main(args):
     log_string('PARAMETER ...')
     log_string(args)
 
-    base_path = 'L:\Pointcloud'
+    base_path = 'D:\Ghazi\Pointcloud'
     NUM_CLASSES = 6
     NUM_POINT = args.npoint
     BATCH_SIZE = args.batch_size
@@ -104,7 +104,7 @@ def main(args):
     TRAIN_DATASET = PointcloudDataset(base_path=base_path, split='train', num_points=NUM_POINT)
     print("start loading test data ...")
     TEST_DATASET = PointcloudDataset(base_path=base_path, split='test', num_points=NUM_POINT)
-    VAL_DATASET = PointcloudDataset(base_path=base_path, split='test', num_points=NUM_POINT)
+    VAL_DATASET = PointcloudDataset(base_path=base_path, split='val', num_points=NUM_POINT)
     trainDataLoader = torch.utils.data.DataLoader(TRAIN_DATASET, batch_size=BATCH_SIZE, shuffle=True, num_workers=10,
                                                   pin_memory=True, drop_last=True)
     testDataLoader = torch.utils.data.DataLoader(TEST_DATASET, batch_size=BATCH_SIZE, shuffle=False, num_workers=10,
@@ -123,7 +123,7 @@ def main(args):
     shutil.copy('./utils.py', str(experiment_dir))
     shutil.copy('%s.py' % args.model, str(experiment_dir))
     classifier = MODEL.PointTransformerSeg().cuda()
-    criterion = torch.nn.CrossEntropyLoss(weight=weights)
+    criterion = torch.nn.CrossEntropyLoss()
     classifier.apply(inplace_relu)
 
     def weights_init(m):

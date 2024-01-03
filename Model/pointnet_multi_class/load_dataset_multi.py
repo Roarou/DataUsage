@@ -44,9 +44,9 @@ def map_color_to_label(color):
 
 
 class PointcloudDataset(Dataset):
-    def __init__(self, base_path=r'L:\Pointcloud', validation_path=r'L:\PointcloudVal1', test_path=r'L:\PointcloudTest',
+    def __init__(self, base_path=r'D:\Ghazi\Pointcloud', validation_path=r'D:\Ghazi\PointcloudVal1', test_path=r'D:\Ghazi\PointcloudTest',
                  split='train', test_size=0.2, val_size=0.2,
-                 random_state=42, num_points=20000):
+                 random_state=42, num_points=20000, sample=True):
         """
         Custom dataset class for loading and managing point cloud data.
 
@@ -62,6 +62,7 @@ class PointcloudDataset(Dataset):
         self.file_val = os.listdir(validation_path)
         self.file_test = os.listdir(test_path)
         self.target_num_points = num_points
+        self.sample = sample
 
         # Split the dataset into train, validation, and test sets
         # train_dirs, test_dirs = train_test_split(self.file_list, test_size=test_size, random_state=random_state)
@@ -124,11 +125,11 @@ class PointcloudDataset(Dataset):
         input = np.asarray(input_pcd.points)
         colors = np.asarray(input_pcd.colors)
         labels = colors
-
-        if len(input) > self.target_num_points:
-            sampled_indices = np.random.choice(len(input), self.target_num_points, replace=False)
-            input = input[sampled_indices]
-            labels = colors[sampled_indices]
+        if self.sample:
+            if len(input) > self.target_num_points:
+                sampled_indices = np.random.choice(len(input), self.target_num_points, replace=False)
+                input = input[sampled_indices]
+                labels = colors[sampled_indices]
         labels = np.array([map_color_to_label(c) for c in labels])
         L1 = np.sum(np.all(labels == 1))
         frequency = Counter(labels)

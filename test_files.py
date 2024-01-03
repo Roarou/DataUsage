@@ -10,6 +10,7 @@ import numpy as np
 import cv2
 import open3d as o3d
 import multiprocessing
+
 # Set the start time of the script execution for performance tracking.
 START_TIME = time.time()
 
@@ -18,6 +19,8 @@ SOURCE_DIR = r"G:\SpineDepth"
 
 # Define the destination directory for calibration settings required by the ZED camera SDK.
 CALIB_DEST_DIR = r'C:\\ProgramData\\Stereolabs\\settings'
+
+
 def check_single_camparam(strings_list):
     """
     Check if there's only one instance of 'CamParam' in the filenames in the given directory.
@@ -78,6 +81,7 @@ def process_config_files(config_file_path):
         print(f'PermissionError: Could not copy {config_file_path} due to insufficient permissions.')
         return False
 
+
 def create_scene_with_camera(camera, rotation_matrix, mesh, extrinsics_matrix):
     """
     Initialize a rendering scene and add a camera with a given pose.
@@ -90,7 +94,7 @@ def create_scene_with_camera(camera, rotation_matrix, mesh, extrinsics_matrix):
     - scene: The created scene with the camera added.
     """
     scene = pyrender.Scene()
-    scene.add(mesh, pose= extrinsics_matrix)
+    scene.add(mesh, pose=extrinsics_matrix)
     scene.add(camera, pose=rotation_matrix)
     return scene
 
@@ -130,7 +134,7 @@ def process_and_save_pointcloud(pcd, mask_image, colors, filename):
         f_indices = np.argwhere(mask_all_zero)
         for j, k in f_indices:
             rgba = numpy_array[j][k][:]
-            rgba[3] = 0 # Assign new RGB values while preserving the alpha channel.
+            rgba[3] = 0  # Assign new RGB values while preserving the alpha channel.
             numpy_array[j][k][:] = rgba
     for i in range(5):
         color = pack_rgb_to_float(colors[i])
@@ -139,14 +143,14 @@ def process_and_save_pointcloud(pcd, mask_image, colors, filename):
         indices = np.argwhere(mask_all_zero)
         for j, k in indices:
             rgba = numpy_array[j][k][:]
-            rgba[3] = color # Assign new RGB values while preserving the alpha channel.
+            rgba[3] = color  # Assign new RGB values while preserving the alpha channel.
             numpy_array[j][k][:] = rgba
 
     mask = ~np.isnan(numpy_array).any(axis=2)
     filtered_points = numpy_array[mask]
     xyz = filtered_points[:, :3].astype(np.float32)
     rgb = np.frombuffer(np.float32(filtered_points[:, 3]).tobytes(), np.uint8).reshape(-1, 4)[:, :3] / 255.0
-    pcd_downs= o3d.geometry.PointCloud()
+    pcd_downs = o3d.geometry.PointCloud()
     pcd_downs.points = o3d.utility.Vector3dVector(xyz)
     pcd_downs.colors = o3d.utility.Vector3dVector(rgb)
     success = o3d.io.write_point_cloud(filename, pcd_downs)
@@ -258,9 +262,11 @@ def create_transformation_matrix(df_row):
         [0, 0, 0, 1]  # The bottom row of a transformation matrix is always [0, 0, 0, 1]
     ])
 
+
 def main():
-    # Main code [ "Specimen_2","Specimen_3","Specimen_4", "Specimen_5", "Specimen_6", "Specimen_7","Specimen_8","Specimen_9",
-    specimens = [ "Specimen_1",  "Specimen_10"]
+    # Main code ["Specimen_2", "Specimen_3", "Specimen_4", "Specimen_5", "Specimen_6", "Specimen_7","Specimen_8",
+    # "Specimen_9",
+    specimens = ["Specimen_1", "Specimen_10"]
     camera_nums = [0, 1]
     for specimen, camera_num in product(specimens, camera_nums):
         specimen_directory_path = os.path.join(SOURCE_DIR, specimen)
@@ -288,7 +294,6 @@ def main():
             if not process_config_files(config_file_path=calib_src_dir):
                 print('Failed to process config files.')
                 return False
-
 
             tracking_file = os.path.join(SOURCE_DIR, specimen, f"Recordings/{recording}/Poses_{camera_num}.txt")
             df = read_tracking_file(tracking_file)
@@ -359,12 +364,15 @@ def main():
 
                     left_camera_intrinsic = calibration_params.left_cam
                     camera = pyrender.camera.IntrinsicsCamera(left_camera_intrinsic.fx, left_camera_intrinsic.fy,
-                                                              left_camera_intrinsic.cx, left_camera_intrinsic.cy, znear=250,
+                                                              left_camera_intrinsic.cx, left_camera_intrinsic.cy,
+                                                              znear=250,
                                                               zfar=2000)
                     mesh = []
                     for i, vert in enumerate(vertebrae):
-                        o3d.io.write_triangle_mesh(os.path.join(save_data_dir, f"transformed_vertebra{i}_frame{cur_frame}.stl"), vert)
-                        mask_stl = trimesh.load(os.path.join(save_data_dir, f"transformed_vertebra{i}_frame{cur_frame}.stl"))
+                        o3d.io.write_triangle_mesh(
+                            os.path.join(save_data_dir, f"transformed_vertebra{i}_frame{cur_frame}.stl"), vert)
+                        mask_stl = trimesh.load(
+                            os.path.join(save_data_dir, f"transformed_vertebra{i}_frame{cur_frame}.stl"))
                         mesh.append(pyrender.Mesh.from_trimesh(mask_stl))
 
                     # Create rotation matrix
@@ -372,7 +380,8 @@ def main():
 
                     # Create renderers and scenes
                     renderers = [pyrender.OffscreenRenderer(1920, 1080) for _ in range(5)]
-                    scenes = [create_scene_with_camera(camera, rotation_matrix, mesh[i], extrinsics_matrix) for i in range(5)]
+                    scenes = [create_scene_with_camera(camera, rotation_matrix, mesh[i], extrinsics_matrix) for i in
+                              range(5)]
 
                     # Render scenes and save depth images
                     for i, (renderer, scene) in enumerate(zip(renderers, scenes)):
@@ -388,8 +397,10 @@ def main():
                     # Coloring point clouds
                     colors = np.array([[255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 0], [255, 0, 255]])
                     assert process_and_save_pointcloud(pcd, mask_images, colors, filename)
-                    #pcd = o3d.io.read_point_cloud(filename=filename)
-                    #o3d.visualization.draw_geometries([pcd])
+                    # pcd = o3d.io.read_point_cloud(filename=filename)
+                    # o3d.visualization.draw_geometries([pcd])
                     cur_frame += 1
+
+
 if __name__ == '__main__':
     main()

@@ -86,7 +86,7 @@ def process_pointcloud(pointcloud_path, model, device):
     input_col = np.asarray(pcd.colors)
     nb = len(input)
 
-    sampled_indices = np.random.choice(nb, 50000, replace=False)
+    sampled_indices = np.random.choice(nb, 200000, replace=False)
     point = input[sampled_indices]
     down_col = input_col[sampled_indices]
     downscale = copy.deepcopy(point)

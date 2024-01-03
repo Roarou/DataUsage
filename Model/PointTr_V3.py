@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from utils_V3 import PointNetFeaturePropagation, PointNetSetAbstraction, TransformerBlock
+from Model.utils_V3 import PointNetFeaturePropagation, PointNetSetAbstraction, TransformerBlock
 import torch.nn.functional as F
 
 class TransitionDown(nn.Module):
